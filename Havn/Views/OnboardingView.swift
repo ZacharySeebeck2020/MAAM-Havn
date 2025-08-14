@@ -41,26 +41,17 @@ struct OnboardingView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
 
-                // Buttons
-                HStack(spacing: 32) {
-                    if page < totalPages - 1 {
-                        Button("Skip") { finish() }
-                            .buttonStyle(.borderless)
-                            .foregroundStyle(Color.textMuted)
-                            .accessibilityLabel("Skip onboarding")
-                    }
-
-                    Spacer()
-
-                    Button(page < totalPages - 1 ? "Next" : "Get Started") {
-                        if page < totalPages - 1 { page += 1 } else { finish() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .foregroundStyle(Color.textMain)
+                .safeAreaInset(edge: .bottom) {
+                  Button(page < totalPages - 1 ? "Next" : "Get Started") {
+                      if page < totalPages - 1 { page += 1 } else { finish() }
+                  }
+                  .buttonStyle(.borderedProminent)
+                  .background(Color("CallToActionColor"))
+                  .foregroundStyle(.white)
+                  .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                  .padding(.horizontal, 16).padding(.bottom, 12)
+                  .controlSize(.large)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 12)
             }
             .padding(.top, 24)
         }
@@ -77,20 +68,22 @@ struct OnboardingView: View {
 
     // MARK: - Preferences page
     private var preferencesPage: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 64) {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 64, weight: .semibold))
+                .font(.system(size: 128, weight: .semibold))
                 .padding(.bottom, 8)
 
-            Text("Preferences")
-                .font(.system(.largeTitle, design: .rounded)).bold()
-                .foregroundStyle(Color.textMain)
-
-            Text("Choose how Havn works for you.")
-                .font(.body)
-                .foregroundStyle(Color.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+            VStack (spacing: 16) {
+                Text("Preferences")
+                    .font(HavnTheme.Typeface.title)
+                    .foregroundStyle(Color.textMain)
+                
+                Text("Choose how Havn works for you.")
+                    .font(HavnTheme.Typeface.caption)
+                    .foregroundStyle(Color.textMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
 
             VStack(spacing: 12) {
                 Toggle("App Lock (Face ID / Touch ID)", isOn: Binding(
@@ -110,13 +103,15 @@ struct OnboardingView: View {
                     }
                 ))
                 .tint(Color.accentColor)
+                .font(HavnTheme.Typeface.caption)
                 .accessibilityHint("Uses your device biometrics to lock Havn")
 
                 Toggle("iCloud Sync (optional)", isOn: $useCloudSync)
                     .accessibilityHint("Requires iCloud; will enable after setup")
                     .tint(Color.accentColor)
+                    .font(HavnTheme.Typeface.caption)
                 Text("Requires iCloud. Your data remains yours. We don’t collect analytics.")
-                    .font(.footnote)
+                    .font(HavnTheme.Typeface.footnote)
                     .foregroundStyle(Color.textMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -146,22 +141,24 @@ private struct OnbPageView: View {
     let subtitle: String
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 64) {
             Image(systemName: symbol)
-                .font(.system(size: 64, weight: .semibold))
+                .font(.system(size: 128, weight: .semibold))
                 .padding(.bottom, 8)
                 .foregroundStyle(Color.textMain)
+            
+            VStack (spacing: 16) {
+                Text(title)
+                    .font(HavnTheme.Typeface.title)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.textMain)
 
-            Text(title)
-                .font(.system(.largeTitle, design: .rounded)).bold()
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.textMain)
-
-            Text(subtitle)
-                .font(.body)
-                .foregroundStyle(Color.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                Text(subtitle)
+                    .font(HavnTheme.Typeface.caption)
+                    .foregroundStyle(Color.textMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
 
             Spacer(minLength: 0)
         }

@@ -40,10 +40,12 @@ struct HistoryView: View {
             // Results list
             List {
                 if filteredEntries.isEmpty {
-                    ContentUnavailableView("No entries",
-                                           systemImage: "magnifyingglass",
-                                           description: Text(emptyHint))
-                        .listRowBackground(Color("BackgroundColor"))
+                    EmptyState(
+                        title: "No matches",
+                        subtitle: "Try fewer words or remove filters.",
+                        systemImage: "magnifyingglass"
+                    )
+                    .padding(.top, 12)
                 } else {
                     ForEach(filteredEntries) { e in
                         NavigationLink {

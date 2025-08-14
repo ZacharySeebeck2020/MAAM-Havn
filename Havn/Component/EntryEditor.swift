@@ -16,6 +16,21 @@ struct EntryEditor: View {
     @FetchRequest private var entries: FetchedResults<JournalEntry>
     @State private var draftText: String = ""
     @State private var photoItem: PhotosPickerItem?
+    @State private var isSaving = false
+    @State private var saveTask: Task<Void, Never>? = nil
+
+    @MainActor
+    private func scheduleSave(debounce: Double = 0.75) {
+        saveTask?.cancel()
+        let snapshot = draftText  // capture latest text
+        saveTask = Task { @MainActor in
+            isSaving = true
+            try? await Task.sleep(nanoseconds: UInt64(debounce * 1_000_000_000))
+            if Task.isCancelled { isSaving = false; return }
+            saveNowIfNeeded(text: snapshot)
+            isSaving = false
+        }
+    }
 
     init(day: Date) {
         let start = Day.start(day), end = Day.next(day)
@@ -41,13 +56,14 @@ struct EntryEditor: View {
                             .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
                             .overlay(
                                 Text("Add a photo")
-                                    .font(.callout)
+                                    .font(HavnTheme.Typeface.title)
                                     .foregroundStyle(Color("TextMutedColor"))
                             )
                     }
                 }
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                .havnCardStroke()
             }
             .onChange(of: photoItem) { _, item in
                 Task {
@@ -60,41 +76,24 @@ struct EntryEditor: View {
                     } else {
                         e.photoData = data
                     }
-
                     touch(e)
                 }
             }
 
             // Text
             TextEditor(text: Binding(
-                get: { entry?.text ?? draftText },
+                get: { draftText },
                 set: { new in
-                    if let e = entry {
-                        e.text = new; touch(e)
-                    } else {
-                        draftText = new
-                        if !new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            let e = createEntry()
-                            e.text = new; touch(e)
-                        }
-                    }
+                    draftText = new
+                    scheduleSave(debounce: 0.75)    // debounce typing saves
                 }
             ))
             .frame(minHeight: 220)
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color("CardSurfaceColor")))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color("AccentColor").opacity(0.25), lineWidth: 1))
+            
+            .background(RoundedRectangle(cornerRadius: HavnTheme.Radius.card).fill(Color("CardSurfaceColor")))
+            .overlay(RoundedRectangle(cornerRadius: HavnTheme.Radius.card).stroke(Color("AccentColor").opacity(0.25), lineWidth: 1))
 
-            HStack {
-                Button((entry?.isStarred ?? false) ? "Starred ★" : "Star ☆") {
-                    let e = entry ?? createEntry()
-                    e.isStarred.toggle(); touch(e)
-                }
-                Spacer()
-                Button("Done") { try? moc.save() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color("AccentColor"))
-            }
         }
         .padding(.horizontal)
         .onAppear {
@@ -104,7 +103,38 @@ struct EntryEditor: View {
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to:nil, from:nil, for:nil) }
+                
+                }
+        }
+        .onDisappear {
+            saveTask?.cancel()
+            saveNowIfNeeded(text: draftText)
+        }
+        .toolbar {
+            // Title: date + tiny saving state
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 2) {
+                    Text(day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().year()))
+                        .font(.headline)
+                    if isSaving {
+                        Text("Saving…").font(.caption2).foregroundStyle(Color("TextMutedColor"))
+                    }
+                }
+            }
+
+            // Trailing: Star toggle
+            ToolbarItem(placement: .navigationBarTrailing) {
+                let starred = entry?.isStarred ?? false
+                Button {
+                    let e = entry ?? createEntry()
+                    e.isStarred.toggle()
+                    scheduleSave()
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Image(systemName: starred ? "star.fill" : "star")
+                        .symbolRenderingMode(.hierarchical)
+                }
+                .accessibilityLabel((entry?.isStarred ?? false) ? "Unstar" : "Star")
             }
         }
     }
@@ -117,6 +147,36 @@ struct EntryEditor: View {
         e.createdAt = Date()
         e.updatedAt = Date()
         return e
+    }
+
+    @MainActor
+    private func fetchEntry() -> JournalEntry? {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: day)
+        let end   = cal.date(byAdding: .day, value: 1, to: start)!
+        let req: NSFetchRequest<JournalEntry> = JournalEntry.fetchRequest()
+        req.fetchLimit = 1
+        req.predicate = NSPredicate(format: "day >= %@ AND day < %@", start as NSDate, end as NSDate)
+        return try? moc.fetch(req).first
+    }
+
+    @MainActor
+    private func saveNowIfNeeded(text: String) {
+        // If there is an entry, update it; otherwise create one only if text is non-empty
+        if let e = fetchEntry() {
+            e.text = text
+            markUpdated(e)
+            try? moc.save()
+        } else if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let e = createEntry()
+            e.text = text
+            markUpdated(e)
+            try? moc.save()
+        }
+    }
+
+    private func markUpdated(_ e: JournalEntry) {
+        e.updatedAt = Date()
     }
     private func touch(_ e: JournalEntry) { e.updatedAt = Date(); try? moc.save() }
 }
@@ -146,4 +206,32 @@ private struct EntryEditorPreviewHarness: View {
 #Preview("Interactive • Dark")  {
     EntryEditorPreviewHarness()
         .preferredColorScheme(.dark)
+}
+#Preview("Editor • NavStack") {
+    NavigationStack {
+        EntryEditor(day: Calendar.current.startOfDay(for: .now))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar) // optional, if it looks hidden
+    }
+    .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+}
+
+private struct EditorPreviewSheetHost: View {
+    @State private var showing = true
+    var body: some View {
+        Color.clear
+            .sheet(isPresented: $showing) {
+                NavigationStack {
+                    EntryEditor(day: Calendar.current.startOfDay(for: .now))
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbarRole(.editor) // optional: makes Close/Done-style placements feel right
+                }
+                .tint(Color("AccentColor"))
+            }
+    }
+}
+
+#Preview("Editor • Sheet") {
+    EditorPreviewSheetHost()
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }

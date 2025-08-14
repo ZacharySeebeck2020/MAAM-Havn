@@ -141,7 +141,7 @@ enum PreviewData {
         let cal = Calendar.current
         let today = Calendar.current.startOfDay(for: Date())
         let notes = [
-            "First entry — feeling hopeful.",
+            "First entry — feeling hopeful. The bubble overlay is added after sizing/clipping, so .bottomLeading is the card’s true bottom-left corner.",
             "Walked 2 miles and wrote for 10 minutes.",
             "Small win today. Proud of it.",
             "Quiet day. Kept it simple.",
@@ -176,7 +176,7 @@ enum PreviewData {
         let size = CGSize(width: 1200, height: 800)
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in
-            UIColor.systemGray5.setFill()
+            UIColor.black.setFill()
             ctx.fill(CGRect(origin: .zero, size: size))
             let str = "Havn \(index + 1)"
             let attrs: [NSAttributedString.Key: Any] = [

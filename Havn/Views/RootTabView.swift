@@ -12,27 +12,30 @@ struct RootTabView: View {
     @State private var tab: Tab = .journal
 
     var body: some View {
-        TabView(selection: $tab) {
-            NavigationStack {
-                JournalView()
+        ZStack {
+            TabView(selection: $tab) {
+                NavigationStack {
+                    JournalView()
+                        .zIndex(2)
+                }
+                .tabItem { Label("Journal", systemImage: "book.closed") }
+                .tag(Tab.journal)
+                
+                NavigationStack {
+                    HistoryView()
+                }
+                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tag(Tab.history)
+                
+                NavigationStack {
+                    SettingsView()
+                }
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(Tab.settings)
             }
-            .tabItem { Label("Journal", systemImage: "book.closed") }
-            .tag(Tab.journal)
-
-            NavigationStack {
-                HistoryView()
-            }
-            .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
-            .tag(Tab.history)
-
-            NavigationStack {
-                SettingsView()
-            }
-            .tabItem { Label("Settings", systemImage: "gearshape") }
-            .tag(Tab.settings)
+            .tint(Color("AccentColor"))
+            .background(Color("BackgroundColor").ignoresSafeArea())
         }
-        .tint(Color("AccentColor"))
-        .background(Color("BackgroundColor").ignoresSafeArea())
     }
 }
 

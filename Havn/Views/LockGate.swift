@@ -70,7 +70,7 @@ struct LockGate<Content: View>: View {
                     .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(Color("AccentColor"))
                 Text("Tap to unlock")
-                    .font(.headline)
+                    .font(HavnTheme.Typeface.title)
                     .foregroundStyle(Color("TextMutedColor"))
                 Button("Unlock", action: authenticateIfNeeded)
                     .buttonStyle(.borderedProminent)
