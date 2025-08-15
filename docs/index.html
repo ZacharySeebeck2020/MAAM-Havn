@@ -12,6 +12,57 @@
   <meta name="theme-color" content="#2B2933" />
   <link rel="icon" href="/havn.jpg" />
   <link rel="stylesheet" href="./styles.css" />
+  <style>
+    /* Screenshots slider styles */
+    .shots { margin-top: 28px; }
+    .shots h3 { margin: 0 0 8px 0; }
+
+    /* Use CSS vars to control how many are visible */
+    body { --slides: 3; --gap: 16px; }
+    @media (max-width: 860px){ body { --slides: 2; } }
+    @media (max-width: 520px){ body { --slides: 1; } }
+
+    .slider { position: relative; }
+    .slider .track {
+      display: flex;
+      gap: var(--gap);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      padding: 6px 4px 10px; /* a little bottom room so shadows don't clip */
+    }
+    .slider .slide {
+      flex: 0 0 calc((100% - (var(--gap) * (var(--slides) - 1))) / var(--slides));
+      scroll-snap-align: start;
+      border-radius: 18px;
+      overflow: hidden; /* ensures rounded corners clip the image */
+      background: rgba(0,0,0,0.04);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    .slider .slide img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .slider-nav {
+      position: absolute;
+      top: 50%; transform: translateY(-50%);
+      width: 44px; height: 44px; border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: var(--card);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: var(--lav);
+      cursor: pointer;
+    }
+    .slider-nav:disabled { opacity: .4; cursor: default; }
+    .slider-nav.prev { left: -6px; }
+    .slider-nav.next { right: -6px; }
+
+    @media (prefers-color-scheme: dark){
+      .slider .slide { background: rgba(255,255,255,0.06); box-shadow: 0 8px 26px rgba(0,0,0,0.35); }
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -42,6 +93,34 @@
         </ul>
       </div>
     </div>
+    <section id="screenshots" aria-labelledby="shots-title">
+      <div class="wrap shots">
+        <h3 id="shots-title">Screenshots</h3>
+        <p class="muted">Raw, unedited captures from the current build.</p>
+
+        <div class="slider" id="shots-slider" role="region" aria-label="App screenshots slider">
+          <button class="slider-nav prev" id="shots-prev" aria-label="Previous screenshots">&#8249;</button>
+
+          <div class="track" id="shots-track" tabindex="0">
+            <!-- Show three at a time on desktop, two on tablet, one on mobile -->
+            <a class="slide" href="./shots/home.png" target="_blank" rel="noopener">
+              <img src="./shots/home.png" alt="Havn — Journal card with photo and snippet" loading="lazy" />
+            </a>
+            <a class="slide" href="./shots/history.png" target="_blank" rel="noopener">
+              <img src="./shots/history.png" alt="Havn — History list with search and filters" loading="lazy" />
+            </a>
+            <a class="slide" href="./shots/calendar.png" target="_blank" rel="noopener">
+              <img src="./shots/calendar.png" alt="Havn — Month view calendar" loading="lazy" />
+            </a>
+            <a class="slide" href="./shots/lock.png" target="_blank" rel="noopener">
+              <img src="./shots/lock.png" alt="Havn — Lock screen with Face ID prompt" loading="lazy" />
+            </a>
+          </div>
+
+          <button class="slider-nav next" id="shots-next" aria-label="Next screenshots">&#8250;</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -53,5 +132,39 @@
       </div>
     </div>
   </footer>
+
+  <script>
+    (function(){
+      const track = document.getElementById('shots-track');
+      const prev  = document.getElementById('shots-prev');
+      const next  = document.getElementById('shots-next');
+      if(!track || !prev || !next) return;
+
+      function gapPx(){
+        const g = getComputedStyle(track).gap || '0px';
+        return parseFloat(g) || 0;
+      }
+      function step(){
+        const first = track.querySelector('.slide');
+        if(!first) return 0;
+        return first.getBoundingClientRect().width + gapPx();
+      }
+      function update(){
+        const max = track.scrollWidth - track.clientWidth - 1; // epsilon
+        prev.disabled = track.scrollLeft <= 0;
+        next.disabled = track.scrollLeft >= max;
+      }
+      function nudge(dir){
+        track.scrollBy({ left: dir * step(), behavior: 'smooth' });
+        setTimeout(update, 300);
+      }
+
+      prev.addEventListener('click', ()=> nudge(-1));
+      next.addEventListener('click', ()=> nudge(1));
+      track.addEventListener('scroll', update);
+      window.addEventListener('resize', update);
+      update();
+    })();
+  </script>
 </body>
 </html>
