@@ -60,6 +60,15 @@
     @media (prefers-color-scheme: dark){
       .slider .slide { background: rgba(255,255,255,0.06); box-shadow: 0 8px 26px rgba(0,0,0,0.35); }
     }
+
+    .faq { max-width: 960px; margin-top: 8px; }
+    .faq details { background: var(--card); border: 1px solid var(--stroke); border-radius: var(--radius-lg); padding: 0; overflow: hidden; }
+    .faq details + details { margin-top: 12px; }
+    .faq summary { list-style: none; cursor: pointer; padding: 16px 18px; font-weight: 700; color: var(--lav); display: flex; align-items: center; justify-content: space-between; }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq .chev { transition: transform .2s ease; }
+    .faq details[open] .chev { transform: rotate(180deg); }
+    .faq .answer { padding: 0 18px 16px 18px; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -117,6 +126,46 @@
           </div>
 
           <button class="slider-nav next" id="shots-next" aria-label="Next screenshots">&#8250;</button>
+        </div>
+      </div>
+    </section>
+
+        <section id="faq" aria-labelledby="faq-title">
+      <div class="wrap">
+        <h3 id="faq-title">FAQ</h3>
+        <div class="faq">
+          <details>
+            <summary>Where is my data stored?<span class="chev">▾</span></summary>
+            <div class="answer">Entries are saved on your device by default. If you enable iCloud, they’re stored in your private iCloud database tied to your Apple ID.</div>
+          </details>
+          <details>
+            <summary>Can you access my entries?<span class="chev">▾</span></summary>
+            <div class="answer">No. Havn has no accounts or servers. If you turn on iCloud, Apple hosts the data in your private CloudKit container; the developer cannot see it.</div>
+          </details>
+          <details>
+            <summary>How does iCloud sync work?<span class="chev">▾</span></summary>
+            <div class="answer">When enabled, changes sync through CloudKit between your devices signed into the same Apple ID with iCloud Drive on. Open Havn on both devices to nudge a sync.</div>
+          </details>
+          <details>
+            <summary>How do I restore on a new iPhone?<span class="chev">▾</span></summary>
+            <div class="answer">Sign in with the same Apple ID, enable iCloud Drive, install Havn, then open it. Your entries will appear as CloudKit sync completes.</div>
+          </details>
+          <details>
+            <summary>Why one entry per day?<span class="chev">▾</span></summary>
+            <div class="answer">Focus and reflection. One photo + note keeps the habit light, consistent, and easier to look back on without noise.</div>
+          </details>
+          <details>
+            <summary>How do I lock the app?<span class="chev">▾</span></summary>
+            <div class="answer">Go to <em>Settings → App Lock</em> to enable Face ID / Touch ID. Biometric checks are handled by iOS; Havn never sees your biometrics.</div>
+          </details>
+          <details>
+            <summary>Do you collect analytics?<span class="chev">▾</span></summary>
+            <div class="answer">No tracking and no third‑party analytics. We rely on user emails for feedback and Apple’s crash reports for stability.</div>
+          </details>
+          <details>
+            <summary>How can I contact support?<span class="chev">▾</span></summary>
+            <div class="answer">Email <a href="mailto:zac@seebeck.work?subject=Havn%20Support">zac@seebeck.work</a> with your iPhone model, iOS version, and steps to reproduce any issue.</div>
+          </details>
         </div>
       </div>
     </section>
