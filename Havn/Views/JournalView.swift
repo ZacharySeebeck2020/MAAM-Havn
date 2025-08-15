@@ -38,7 +38,6 @@ struct JournalView: View {
         VStack(spacing: 0) {
             // FIX: pass the binding
             WeekMonthExpandable(selectedDay: $selected, isExpanded: expanded)
-
             GeometryReader { proxy in
                 let width = proxy.size.width
 
@@ -103,8 +102,10 @@ struct JournalView: View {
                 .gesture(expanded ? nil : swipeGesture(width: width))
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            .padding(.top, 32)
+            .padding(.bottom,6)
+            .padding(.top, 16)
+            StreakPill()
+                .padding(.horizontal, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color("BackgroundColor").ignoresSafeArea(edges: .bottom))
