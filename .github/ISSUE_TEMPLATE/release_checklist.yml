@@ -23,16 +23,11 @@ body:
       label: Preflight
       options:
         - label: Bump version + build; archive and upload.
-          required: true
         - label: “What’s New” written and proofread.
-          required: true
         - label: Screenshots updated (if needed).
         - label: App privacy + encryption answers confirmed.
-          required: true
         - label: Support/Privacy URLs live.
-          required: true
         - label: Manual or phased release selected.
-          required: true
   - type: textarea
     id: notes
     attributes:
