@@ -33,7 +33,6 @@ struct SettingsView: View {
     @Environment(\.requestReview) private var requestReview
     @State private var syncing = false
     @State private var syncStatus: String?
-    @State private var permissionDenied: Bool = false;
   
     private var timeBinding: Binding<Date> {
         Binding<Date>(
