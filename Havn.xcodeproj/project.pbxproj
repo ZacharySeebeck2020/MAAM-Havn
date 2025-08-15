@@ -6,7 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		71402C052E4FC53B008BA963 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71402C042E4FC53B008BA963 /* WidgetKit.framework */; };
+		71402C072E4FC53B008BA963 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 71402C062E4FC53B008BA963 /* SwiftUI.framework */; };
+		71402C162E4FC53D008BA963 /* HavnWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 71402C022E4FC53B008BA963 /* HavnWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		71402C142E4FC53D008BA963 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 71A311A82E3FA72D0052E22D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 71402C012E4FC53B008BA963;
+			remoteInfo = HavnWidgetsExtension;
+		};
 		71A311C52E3FA72E0052E22D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 71A311A82E3FA72D0052E22D /* Project object */;
@@ -23,27 +36,72 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		71402C1B2E4FC53D008BA963 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				71402C162E4FC53D008BA963 /* HavnWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		71402C022E4FC53B008BA963 /* HavnWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HavnWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		71402C042E4FC53B008BA963 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		71402C062E4FC53B008BA963 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		71402C222E4FD0FA008BA963 /* HavnWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HavnWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		71A311B02E3FA72D0052E22D /* Havn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Havn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		71A311C42E3FA72E0052E22D /* HavnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HavnTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		71A311CE2E3FA72E0052E22D /* HavnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HavnUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		71402C1A2E4FC53D008BA963 /* Exceptions for "HavnWidgets" folder in "HavnWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 71402C012E4FC53B008BA963 /* HavnWidgetsExtension */;
+		};
 		71A311D62E3FA72E0052E22D /* Exceptions for "Havn" folder in "Havn" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Helpers/StreakStats.swift,
 				Info.plist,
 			);
 			target = 71A311AF2E3FA72D0052E22D /* Havn */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		71402C712E4FE553008BA963 /* Exceptions for "Havn" folder in "Copy Bundle Resources" phase from "Havn" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 71A311AE2E3FA72D0052E22D /* Resources */;
+			membershipExceptions = (
+				Helpers/StreakStats.swift,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		71402C082E4FC53B008BA963 /* HavnWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				71402C1A2E4FC53D008BA963 /* Exceptions for "HavnWidgets" folder in "HavnWidgetsExtension" target */,
+			);
+			path = HavnWidgets;
+			sourceTree = "<group>";
+		};
 		71A311B22E3FA72D0052E22D /* Havn */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				71A311D62E3FA72E0052E22D /* Exceptions for "Havn" folder in "Havn" target */,
+				71402C712E4FE553008BA963 /* Exceptions for "Havn" folder in "Copy Bundle Resources" phase from "Havn" target */,
 			);
 			path = Havn;
 			sourceTree = "<group>";
@@ -61,6 +119,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		71402BFF2E4FC53B008BA963 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				71402C072E4FC53B008BA963 /* SwiftUI.framework in Frameworks */,
+				71402C052E4FC53B008BA963 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		71A311AD2E3FA72D0052E22D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -85,12 +152,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		71402C032E4FC53B008BA963 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				71402C042E4FC53B008BA963 /* WidgetKit.framework */,
+				71402C062E4FC53B008BA963 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		71A311A72E3FA72D0052E22D = {
 			isa = PBXGroup;
 			children = (
+				71402C222E4FD0FA008BA963 /* HavnWidgetsExtension.entitlements */,
 				71A311B22E3FA72D0052E22D /* Havn */,
 				71A311C72E3FA72E0052E22D /* HavnTests */,
 				71A311D12E3FA72E0052E22D /* HavnUITests */,
+				71402C082E4FC53B008BA963 /* HavnWidgets */,
+				71402C032E4FC53B008BA963 /* Frameworks */,
 				71A311B12E3FA72D0052E22D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,6 +180,7 @@
 				71A311B02E3FA72D0052E22D /* Havn.app */,
 				71A311C42E3FA72E0052E22D /* HavnTests.xctest */,
 				71A311CE2E3FA72E0052E22D /* HavnUITests.xctest */,
+				71402C022E4FC53B008BA963 /* HavnWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,6 +188,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		71402C012E4FC53B008BA963 /* HavnWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 71402C172E4FC53D008BA963 /* Build configuration list for PBXNativeTarget "HavnWidgetsExtension" */;
+			buildPhases = (
+				71402BFE2E4FC53B008BA963 /* Sources */,
+				71402BFF2E4FC53B008BA963 /* Frameworks */,
+				71402C002E4FC53B008BA963 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				71402C082E4FC53B008BA963 /* HavnWidgets */,
+			);
+			name = HavnWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = HavnWidgetsExtension;
+			productReference = 71402C022E4FC53B008BA963 /* HavnWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		71A311AF2E3FA72D0052E22D /* Havn */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 71A311D72E3FA72E0052E22D /* Build configuration list for PBXNativeTarget "Havn" */;
@@ -115,10 +217,12 @@
 				71A311AC2E3FA72D0052E22D /* Sources */,
 				71A311AD2E3FA72D0052E22D /* Frameworks */,
 				71A311AE2E3FA72D0052E22D /* Resources */,
+				71402C1B2E4FC53D008BA963 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				71402C152E4FC53D008BA963 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				71A311B22E3FA72D0052E22D /* Havn */,
@@ -186,6 +290,9 @@
 				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
+					71402C012E4FC53B008BA963 = {
+						CreatedOnToolsVersion = 16.4;
+					};
 					71A311AF2E3FA72D0052E22D = {
 						CreatedOnToolsVersion = 16.4;
 					};
@@ -216,11 +323,19 @@
 				71A311AF2E3FA72D0052E22D /* Havn */,
 				71A311C32E3FA72E0052E22D /* HavnTests */,
 				71A311CD2E3FA72E0052E22D /* HavnUITests */,
+				71402C012E4FC53B008BA963 /* HavnWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		71402C002E4FC53B008BA963 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		71A311AE2E3FA72D0052E22D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -245,6 +360,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		71402BFE2E4FC53B008BA963 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		71A311AC2E3FA72D0052E22D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -269,6 +391,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		71402C152E4FC53D008BA963 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 71402C012E4FC53B008BA963 /* HavnWidgetsExtension */;
+			targetProxy = 71402C142E4FC53D008BA963 /* PBXContainerItemProxy */;
+		};
 		71A311C62E3FA72E0052E22D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 71A311AF2E3FA72D0052E22D /* Havn */;
@@ -282,6 +409,64 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		71402C182E4FC53D008BA963 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = HavnWidgetsExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34F4SJY7B2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HavnWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HavnWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = work.seebeck.Havn.HavnWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		71402C192E4FC53D008BA963 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = HavnWidgetsExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34F4SJY7B2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HavnWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HavnWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = work.seebeck.Havn.HavnWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		71A311D82E3FA72E0052E22D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -296,6 +481,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Havn/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Havn;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Havn uses Face ID to lock and unlock your journal.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -308,7 +494,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = work.seebeck.Havn;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -336,6 +522,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Havn/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Havn;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Havn uses Face ID to lock and unlock your journal.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -348,7 +535,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = work.seebeck.Havn;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -552,6 +739,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		71402C172E4FC53D008BA963 /* Build configuration list for PBXNativeTarget "HavnWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				71402C182E4FC53D008BA963 /* Debug */,
+				71402C192E4FC53D008BA963 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		71A311AB2E3FA72D0052E22D /* Build configuration list for PBXProject "Havn" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

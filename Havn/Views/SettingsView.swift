@@ -7,6 +7,9 @@
 
 import SwiftUI
 import StoreKit
+import UserNotifications
+import WidgetKit
+import CoreData
 
 private extension Bundle {
     var appVersion: String { infoDictionary?["CFBundleShortVersionString"] as? String ?? "?" }
@@ -14,6 +17,7 @@ private extension Bundle {
 }
 
 struct SettingsView: View {
+    @Environment(\.managedObjectContext) private var moc
     @AppStorage("useBiometricLock") private var useBiometricLock = false
     @AppStorage("useCloudSync")     private var useCloudSync = false
     @AppStorage("hasOnboarded")   private var hasOnboarded = false
@@ -21,6 +25,7 @@ struct SettingsView: View {
     @Environment(\.requestReview) private var requestReview
     @State private var syncing = false
     @State private var syncStatus: String?
+    @State private var permissionDenied: Bool = false;
 
     private func makeMailto() -> URL {
         var comps = URLComponents()
@@ -104,10 +109,86 @@ struct SettingsView: View {
                 }
             }
 
+            #if DEBUG
+            Section("Debug Options") {
+                Button {
+                    Task {
+                        runWidgetDiagnostics(context: moc)
+                    }
+                } label: {
+                    HStack {
+                        Text("Run Widget Diag.")
+                            .font(HavnTheme.Typeface.caption)
+                    }
+                }
+            }
+
+            #endif
+            
         }
         .tint(Color("AccentColor"))
         .scrollContentBackground(.hidden)
         .background(Color("BackgroundColor"))
+    }
+    
+    #if DEBUG
+    // MARK: Debug Code
+    func runWidgetDiagnostics(context: NSManagedObjectContext) {
+        // 1) Write current state/files
+        WidgetBridge.refresh(from: context)
+
+        // 2) Print App Group + state
+        let groupID = AppGroup.id
+        if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) {
+            let s = container.appendingPathComponent("widget-state.json")
+            let t = container.appendingPathComponent("today-thumb.jpg")
+            print("Container:", container.path,
+                  "state exists:", FileManager.default.fileExists(atPath: s.path),
+                  "thumb exists:", FileManager.default.fileExists(atPath: t.path))
+            if let data = try? Data(contentsOf: s),
+               let state = try? JSONDecoder().decode(WidgetState.self, from: data) {
+                print("STATE:", state)
+            }
+        } else {
+            print("❗️No App Group container for:", groupID)
+        }
+
+        // 3) Force the timeline
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            print("Configs:", result)
+            WidgetCenter.shared.reloadTimelines(ofKind: "HavnWidgets")
+        }
+    }
+    #endif
+    // MARK: - Notification Permissions
+    private func requestAuthIfNeeded(completion: @escaping (Bool)->Void) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { s in
+            switch s.authorizationStatus {
+            case .authorized, .provisional, .ephemeral: completion(true)
+            case .denied: completion(false)
+            case .notDetermined:
+                center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                    completion(granted)
+                }
+            @unknown default:
+                completion(false)
+            }
+        }
+    }
+    
+    private func refereshPermissionState() {
+        UNUserNotificationCenter.current().getNotificationSettings { s in
+            DispatchQueue.main.async {
+                self.permissionDenied = s.authorizationStatus == .denied
+            }
+        }
+    }
+    
+    private func openSystemSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
     }
 }
 
