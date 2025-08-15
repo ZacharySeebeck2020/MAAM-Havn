@@ -13,6 +13,7 @@ struct JournalView: View {
     @State private var selected = Calendar.current.startOfDay(for: Date())
     @State private var expanded = false
     @Environment(\.managedObjectContext) private var moc
+    @Environment(\.scenePhase) private var scenePhase
 
     // swipe state
     @State private var dragX: CGFloat = 0
@@ -34,9 +35,15 @@ struct JournalView: View {
         return (try? moc.count(for: req)) ?? 0 > 0
     }
 
+    private func refreshWidgetAsync() {
+        let ctx = moc
+        DispatchQueue.global(qos: .utility).async {
+            WidgetBridge.refresh(from: ctx)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // FIX: pass the binding
             WeekMonthExpandable(selectedDay: $selected, isExpanded: expanded)
             GeometryReader { proxy in
                 let width = proxy.size.width
@@ -123,6 +130,22 @@ struct JournalView: View {
                     }
             }
             .tint(Color("AccentColor"))
+        }
+        .onChange(of: showEditor) { oldValue, newValue in
+            if newValue == false { // editor just closed
+                refreshWidgetAsync()
+            }
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active {
+                refreshWidgetAsync()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange).receive(on: RunLoop.main)) { _ in
+            refreshWidgetAsync()
+        }
+        .onAppear() {
+            refreshWidgetAsync()
         }
     }
 

@@ -8,6 +8,8 @@
 import SwiftUI
 import StoreKit
 import UserNotifications
+import WidgetKit
+import CoreData
 
 private extension Bundle {
     var appVersion: String { infoDictionary?["CFBundleShortVersionString"] as? String ?? "?" }
@@ -31,7 +33,7 @@ struct SettingsView: View {
     @Environment(\.requestReview) private var requestReview
     @State private var syncing = false
     @State private var syncStatus: String?
-    
+  
     private var timeBinding: Binding<Date> {
         Binding<Date>(
             get: { Self.timeFrom(hour: reminderHour, minute: reminderMinute) },
@@ -187,12 +189,57 @@ struct SettingsView: View {
                 }
             }
 
+            #if DEBUG
+            Section("Debug Options") {
+                Button {
+                    Task {
+                        runWidgetDiagnostics(context: moc)
+                    }
+                } label: {
+                    HStack {
+                        Text("Run Widget Diag.")
+                            .font(HavnTheme.Typeface.caption)
+                    }
+                }
+            }
+
+            #endif
+            
         }
         .tint(Color("AccentColor"))
         .scrollContentBackground(.hidden)
         .background(Color("BackgroundColor"))
     }
     
+    #if DEBUG
+    // MARK: Debug Code
+    func runWidgetDiagnostics(context: NSManagedObjectContext) {
+        // 1) Write current state/files
+        WidgetBridge.refresh(from: context)
+
+        // 2) Print App Group + state
+        let groupID = AppGroup.id
+        if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) {
+            let s = container.appendingPathComponent("widget-state.json")
+            let t = container.appendingPathComponent("today-thumb.jpg")
+            print("Container:", container.path,
+                  "state exists:", FileManager.default.fileExists(atPath: s.path),
+                  "thumb exists:", FileManager.default.fileExists(atPath: t.path))
+            if let data = try? Data(contentsOf: s),
+               let state = try? JSONDecoder().decode(WidgetState.self, from: data) {
+                print("STATE:", state)
+            }
+        } else {
+            print("❗️No App Group container for:", groupID)
+        }
+
+        // 3) Force the timeline
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            print("Configs:", result)
+            WidgetCenter.shared.reloadTimelines(ofKind: "HavnWidgets")
+        }
+    }
+    #endif
     // MARK: - Notification Permissions
     private func requestAuthIfNeeded(completion: @escaping (Bool)->Void) {
         let center = UNUserNotificationCenter.current()

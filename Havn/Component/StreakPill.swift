@@ -62,13 +62,14 @@ struct StreakPill: View {
             }
         }
     }
-
     private func recalc() {
-        moc.perform {
-            let s = Streaks.compute(in: moc)
-            DispatchQueue.main.async {
-                // soft haptic if you’ve improved
-                if s.current > stats.current { UIImpactFeedbackGenerator(style: .soft).impactOccurred() }
+        let ctx = moc
+        ctx.perform {
+            let s = Streaks.compute(in: ctx)
+            Task { @MainActor in
+                if s.current > stats.current {
+                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                }
                 withAnimation(.snappy) { stats = s }
             }
         }
