@@ -56,15 +56,6 @@ final class PersistenceController {
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
 
-        // Observe CloudKit imports to run de-duplication
-        remoteChangeObserver = NotificationCenter.default.addObserver(
-            forName: .NSPersistentStoreRemoteChange,
-            object: container.persistentStoreCoordinator,
-            queue: .main
-        ) { [weak self] _ in
-            self?.dedupePerDay()
-        }
-
         #if DEBUG
         // Initialize CloudKit schema once in Debug (skip for inMemory)
         if !inMemory {
@@ -96,41 +87,6 @@ final class PersistenceController {
             {
                 obj.setValue(Date(), forKey: "updatedAt")
                 try? bg.save()
-            }
-        }
-    }
-
-    // MARK: - De-duplication (keep latest per day)
-    func dedupePerDay() {
-        let bg = container.newBackgroundContext()
-        bg.perform {
-            let req: NSFetchRequest<JournalEntry> = JournalEntry.fetchRequest()
-            req.sortDescriptors = [
-                NSSortDescriptor(key: "day", ascending: true),
-                NSSortDescriptor(key: "updatedAt", ascending: false)
-            ]
-            do {
-                let all = try bg.fetch(req)
-                var lastDay: Date?
-                var keeper: JournalEntry?
-                let cal = Calendar.current
-
-                for e in all {
-                    let d = cal.startOfDay(for: e.day ?? .distantPast)
-                    if let ld = lastDay, d == ld, let k = keeper {
-                        if (k.text ?? "").isEmpty, let t = e.text, !t.isEmpty { k.text = t }
-                        if (k.photoData?.isEmpty ?? true), let p = e.photoData, !p.isEmpty { k.photoData = p }
-                        k.isStarred = k.isStarred || e.isStarred
-                        if let eu = e.updatedAt, let ku = k.updatedAt, eu > ku { k.updatedAt = eu }
-                        bg.delete(e)
-                    } else {
-                        lastDay = d
-                        keeper = e
-                    }
-                }
-                try bg.save()
-            } catch {
-                print("Dedupe error:", error)
             }
         }
     }
