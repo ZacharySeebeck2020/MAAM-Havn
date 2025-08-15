@@ -97,7 +97,7 @@ struct HavnWidgetView: View {
         case .systemMedium:
             contentMedium
         default:
-            contentSmall		
+            contentSmall
         }
     }
     
