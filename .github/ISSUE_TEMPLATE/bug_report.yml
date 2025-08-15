@@ -1,0 +1,100 @@
+name: "Bug report"
+description: "Something isn’t working as expected."
+title: "[bug] <short description>"
+labels: ["type:bug", "triage"]
+body:
+  - type: checkboxes
+    attributes:
+      label: Pre-check
+      options:
+        - label: I searched existing issues and didn’t find a match.
+          required: true
+        - label: I’m reporting for the **iOS app** (not the website).
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Journal / Card
+        - Editor
+        - Calendar / Week→Month
+        - History / Search
+        - Onboarding
+        - App Lock
+        - iCloud Sync
+        - Widgets
+        - Website
+      multiple: false
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Crash / data loss
+        - Major (blocks a main flow)
+        - Minor (workaround exists)
+        - Cosmetic
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: App version / build
+      placeholder: "e.g., 1.0 (100), TestFlight 100"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: "e.g., iPhone 15 Pro"
+    validations:
+      required: true
+  - type: input
+    id: ios
+    attributes:
+      label: iOS version
+      placeholder: "e.g., iOS 18.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: icloud
+    attributes:
+      label: iCloud sync enabled?
+      options: ["Yes", "No", "Not sure / N/A"]
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps are best.
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / screen recordings
+      description: Drag & drop images or attach a video/gif.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Notes / logs (if any)
+      description: Don’t paste personal data. Console snippets or crash logs are helpful.

@@ -1,0 +1,39 @@
+name: "Task / chore"
+description: "Small improvement, refactor, or infrastructure work."
+title: "[task] <short description>"
+labels: ["type:task"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Journal / Card
+        - Editor
+        - Calendar / Week→Month
+        - History / Search
+        - Onboarding
+        - App Lock
+        - iCloud Sync
+        - Widgets
+        - Website
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      placeholder: "What outcome are we aiming for?"
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Use markdown checkboxes.
+      placeholder: |
+        - [ ] …
+        - [ ] …
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria / definition of done
+      placeholder: "- [ ] Tests pass; - [ ] No regressions; - [ ] Docs updated"

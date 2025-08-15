@@ -1,0 +1,60 @@
+name: "Feature request"
+description: "Propose a new capability or user-facing improvement."
+title: "[feat] <short description>"
+labels: ["type:feature"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Journal / Card
+        - Editor
+        - Calendar / Week→Month
+        - History / Search
+        - Onboarding
+        - App Lock
+        - iCloud Sync
+        - Widgets
+        - Website
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / user story
+      placeholder: "As a user, I want … so that …"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: "High-level approach, interactions, and any alternatives considered."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Bullet list or Given/When/Then.
+      placeholder: |
+        - [ ] …
+        - [ ] …
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / out of scope
+      placeholder: "What will this include? What explicitly won’t be included?"
+  - type: textarea
+    id: design
+    attributes:
+      label: Design / references
+      placeholder: "Link mockups, sketches, or example apps."
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks / dependencies
+      placeholder: "e.g., App Group needed; iOS version requirement; CloudKit considerations."

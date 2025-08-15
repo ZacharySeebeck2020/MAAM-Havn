@@ -1,0 +1,48 @@
+name: "Release checklist"
+description: "Ship a new version to TestFlight / App Store."
+title: "[release] v<X.Y.Z>"
+labels: ["type:release"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "e.g., 1.1"
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Build number
+      placeholder: "e.g., 110"
+    validations:
+      required: true
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: Bump version + build; archive and upload.
+          required: true
+        - label: “What’s New” written and proofread.
+          required: true
+        - label: Screenshots updated (if needed).
+        - label: App privacy + encryption answers confirmed.
+          required: true
+        - label: Support/Privacy URLs live.
+          required: true
+        - label: Manual or phased release selected.
+          required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Release notes
+      placeholder: "Short, benefit-focused notes."
+  - type: checkboxes
+    id: post
+    attributes:
+      label: Post-release
+      options:
+        - label: Tag repo version and create GitHub release.
+        - label: Monitor crashes in Xcode Organizer.
+        - label: Draft 1.0.1/1.1 follow-ups from known issues.

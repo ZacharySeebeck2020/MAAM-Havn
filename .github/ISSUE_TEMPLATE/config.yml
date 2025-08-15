@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Havn Support
+    url: mailto:zac@seebeck.work?subject=Havn%20Support
+    about: Questions from users or non-dev feedback.
