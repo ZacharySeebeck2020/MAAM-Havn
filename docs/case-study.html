@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Havn — Case Study</title>
+    <link rel="icon" href="/havn.jpg" />
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+    <header>
+        <div class="wrap nav">
+            <a href="/" class="brand">
+                <div class="header-logo" aria-hidden="true"></div>
+            </a>
+            <a class="btn" href="/case-study.html">Case Study</a>
+            <a class="btn" href="/support.html">Support</a>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <h1 style="color:#D8D3E3">Havn — Case Study</h1>
+        <div class="card">
+            <h2>Goal</h2>
+            <p>A private daily photo journal; designed around security, simplicity, and ease-of-use.</p>
+
+            <h2>Why</h2>
+            <p class="muted">
+                I've been wanting a journaling app that didn't cost an arm and a leg for basic features, and that I could trust wouldn't take my data. 
+                After trying several options, I decided to build my own, and start the MAAM (Mobile App a Month) project. 
+            </p>
+            
+            <h2>Design</h2>
+            <p class="muted">
+                I wanted a clean, minimal design that focused on the content. The app uses a simple
+                home screen showing that day's entry, a expanded view for that day's image, 
+                and a snippet of that day's entry. The app also includes a history view, allowing users
+                to view multiple past entries at once. And filter between entries with photos, or starred 
+                entries for those days that were particularly special.
+            </p>
+
+            <h2>Development</h2>
+            <p class="muted">
+                The app is built using SwiftUI, with a focus on iPhone in particular. I figured since your
+                phone is always with you in today's world, it would make most sence to build it on that 
+                platform.
+                <br/><br/>
+                The app uses CoreData to store entries locally, and CloudKit for optional iCloud sync. Keeping
+                everything private and secure, with no third-party tracking or ads.
+            </p>
+        </div>
+    </main>
+
+    <footer>
+        <div class="wrap" style="display:flex;gap:12px;justify-content:space-between">
+            <div class="muted">© 2025 Zachary Seebeck</div>
+            <div style="display:flex;gap:12px">
+                <a href="/support.html">Support</a><a href="/privacy.html">Privacy</a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
