@@ -9,9 +9,13 @@
         <attribute name="isStarred" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="moodScore" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="photoData" optional="YES" attributeType="Binary"/>
-        <attribute name="tags" optional="YES" attributeType="Transformable"/>
         <attribute name="text" optional="YES" attributeType="String"/>
         <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="weatherScore" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="tagsRel" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Tag" inverseName="journalRel" inverseEntity="Tag"/>
+    </entity>
+    <entity name="Tag" representedClassName="Tag" syncable="YES" codeGenerationType="class">
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <relationship name="journalRel" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="JournalEntry" inverseName="tagsRel" inverseEntity="JournalEntry"/>
     </entity>
 </model>

@@ -26,6 +26,8 @@ struct EntryEditor: View {
     @State private var energyScore: Double = 3
     @State private var weatherScore: Double = 3
     @State private var tags: [String] = []
+    // Known tags aggregated across entries (for suggestions)
+    @State private var knownTags: [String] = []
     
     @MainActor
     private func scheduleSave(debounce: Double = 0.75) {
@@ -110,29 +112,74 @@ struct EntryEditor: View {
         try? moc.save()
     }
 
-    private func getTagsArray() -> [String] {
-        guard let e = entries.first else { return [] }
-        if supportsAttr("tags"), let arr = e.value(forKey: "tags") as? [String] {
-            return arr
-        }
-        if supportsAttr("tagsString"), let s = e.value(forKey: "tagsString") as? String {
-            return s.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        }
-        return []
-    }
+    // Legacy getTagsArray removed; relationship only.
 
     private func setTagsArray(_ arr: [String]) {
         guard let e = entries.first else { return }
-        if supportsAttr("tags") {
-            e.setValue(arr, forKey: "tags")
-        } else if supportsAttr("tagsString") {
-            let s = arr.joined(separator: ", ")
-            e.setValue(s, forKey: "tagsString")
-        } else {
-            return
+        let desiredNames = arr.map(normalizeTag).filter { !$0.isEmpty }
+        // Build Tag objects
+        var objects = [NSManagedObject]()
+        for name in desiredNames {
+            if let tag = fetchOrCreateTag(named: name) { objects.append(tag) }
         }
+        // Replace the relationship via a mutable set to avoid KVC type pitfalls
+        let rel = e.mutableSetValue(forKey: "tagsRel")
+        rel.removeAllObjects()
+        rel.addObjects(from: objects)
         markUpdated(e)
         try? moc.save()
+    }
+
+    // MARK: - Tag helpers (discovery + normalization)
+    private func normalizeTag(_ s: String) -> String {
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        let squashed = trimmed.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return squashed
+    }
+
+    private func refreshKnownTags(limit: Int = 500) {
+        knownTags = fetchAllTagNames(limit: limit)
+    }
+
+    // MARK: - Shared Tag model (optional, runtime-detected)
+    private func hasTagEntity() -> Bool {
+        guard let psc = moc.persistentStoreCoordinator else { return false }
+        return psc.managedObjectModel.entitiesByName.keys.contains("Tag")
+    }
+    private func journalSupportsTagRel() -> Bool {
+        guard let e = entries.first else { return false }
+        return e.entity.relationshipsByName.keys.contains("tagsRel")
+    }
+    private func fetchOrCreateTag(named raw: String) -> NSManagedObject? {
+        guard hasTagEntity() else { return nil }
+        let name = normalizeTag(raw)
+        // Try fetch existing by case-insensitive name
+        let req = NSFetchRequest<NSManagedObject>(entityName: "Tag")
+        req.fetchLimit = 1
+        req.predicate = NSPredicate(format: "name =[c] %@", name)
+        if let found = try? moc.fetch(req).first { return found }
+        // Create new Tag using entity description
+        guard let entity = NSEntityDescription.entity(forEntityName: "Tag", in: moc) else { return nil }
+        let tag = NSManagedObject(entity: entity, insertInto: moc)
+        tag.setValue(name, forKey: "name")
+        return tag
+    }
+    private func fetchAllTagNames(limit: Int = 500) -> [String] {
+        guard hasTagEntity() else { return [] }
+        let req = NSFetchRequest<NSManagedObject>(entityName: "Tag")
+        req.fetchLimit = limit
+        req.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.localizedCaseInsensitiveCompare(_:)))]
+        let names = (try? moc.fetch(req))?.compactMap { $0.value(forKey: "name") as? String } ?? []
+        return names
+    }
+
+    private func getRelationalTags() -> [String] {
+        guard journalSupportsTagRel(), let e = entries.first else { return [] }
+        if let set = e.value(forKey: "tagsRel") as? NSSet {
+            let arr = set.compactMap { ($0 as? NSManagedObject)?.value(forKey: "name") as? String }
+            return arr.map(normalizeTag)
+        }
+        return []
     }
 
     var body: some View {
@@ -166,7 +213,8 @@ struct EntryEditor: View {
                              moodScore: $moodScore,
                              energyScore: $energyScore,
                              weatherScore: $weatherScore,
-                             tags: $tags)
+                             tags: $tags,
+                             knownTags: knownTags)
                     .padding(.top, 8)
                 
                 // Editor content fills remaining height; TextEditor scrolls internally
@@ -237,6 +285,9 @@ struct EntryEditor: View {
             .onChange(of: tags) { _, newArr in
                 setTagsArray(newArr)
             }
+            .onChange(of: tags) { _, _ in
+                refreshKnownTags()
+            }
             .onAppear {
                 // If CloudKit already brought the entry, seed the editor text
                 if let e = entries.first { draftText = e.text ?? "" }
@@ -244,8 +295,8 @@ struct EntryEditor: View {
                 moodScore = Double(getInt16("moodScore"))
                 energyScore = Double(getInt16("energyScore"))
                 weatherScore = Double(getInt16("weatherScore"))
-                let existingTags = getTagsArray()
-                if !existingTags.isEmpty { tags = existingTags }
+                tags = getRelationalTags()
+                refreshKnownTags()
             }
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -343,6 +394,7 @@ private struct MetaChipsRow: View {
     @Binding var energyScore: Double
     @Binding var weatherScore: Double
     @Binding var tags: [String]
+    let knownTags: [String]
     @State private var showPickerFor: ChipKind? = nil
 
     var body: some View {
@@ -395,15 +447,15 @@ private struct MetaChipsRow: View {
             switch kind {
             case .mood:
                 VitalsSliderSheet(kind: .mood, value: $moodScore)
-                    .presentationDetents([.height(220), .medium])
+                    .presentationDetents([.height(90), .medium])
                     .presentationDragIndicator(.visible)
             case .energy:
                 VitalsSliderSheet(kind: .energy, value: $energyScore)
-                    .presentationDetents([.height(220), .medium])
+                    .presentationDetents([.height(90), .medium])
                     .presentationDragIndicator(.visible)
             case .weather:
                 VitalsSliderSheet(kind: .weather, value: $weatherScore)
-                    .presentationDetents([.height(220), .medium])
+                    .presentationDetents([.height(90), .medium])
                     .presentationDragIndicator(.visible)
             case .tags:
                 ChipPickerSheet(
@@ -411,13 +463,13 @@ private struct MetaChipsRow: View {
                     mood: .constant(nil),
                     energy: .constant(nil),
                     weather: .constant(nil),
-                    tags: $tags
+                    tags: $tags,
+                    knownTags: knownTags
                 )
-                .presentationDetents([.height(320), .medium])
+                .presentationDetents([.height(360), .medium])
                 .presentationDragIndicator(.visible)
             }
         }
-        // Removed trailing .padding(.horizontal) to avoid double padding
     }
 
     private func emojis(for kind: ChipKind) -> [String] {
@@ -460,17 +512,18 @@ private struct VitalsSliderSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title).font(.headline).padding(.horizontal)
-            VStack(alignment: .leading, spacing: 12) {
-                // Emoji scale (tap to select)
-                HStack(spacing: 14) {
+        GeometryReader { g in
+            VStack(spacing: 8) {
+                // Emoji scale spans slider width, slightly above it
+                HStack(spacing: 0) {
+                    let count = max(1, emojis.count)
                     ForEach(Array(emojis.enumerated()), id: \.offset) { idx, e in
                         let selected = (idx == Int(value.rounded()) - 1)
                         Text(e)
-                            .font(selected ? .title : .title2)
-                            .scaleEffect(selected ? 1.05 : 1.0)
+                            .font(selected ? .title2 : .title3)
                             .opacity(selected ? 1.0 : 0.65)
+                            .frame(width: g.size.width / CGFloat(count), alignment: .center)
+                            .contentShape(Rectangle())
                             .onTapGesture {
                                 withAnimation(.easeInOut(duration: 0.15)) {
                                     value = Double(idx + 1)
@@ -480,13 +533,16 @@ private struct VitalsSliderSheet: View {
                             .accessibilityLabel("\(title) level \(idx + 1)")
                     }
                 }
+                .offset(y: -2)
 
                 Slider(value: $value, in: 1...5, step: 1)
                     .tint(Color.accentColor)
+                    .padding(.horizontal, 20)
             }
-            .padding(.horizontal)
-            Spacer(minLength: 0)
+            .padding(.top, 20)
+            .frame(maxHeight: .infinity, alignment: .center) // center vertically within sheet height
         }
+        .frame(minHeight: 90) // supports the small detent height
     }
 }
 
@@ -496,12 +552,13 @@ private struct ChipPickerSheet: View {
     @Binding var energy: String?
     @Binding var weather: String?
     @Binding var tags: [String]
+    var knownTags: [String]? = nil
 
     @State private var newTagText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(title).font(.headline).padding(.horizontal)
+            Text(title).font(.headline).padding(.horizontal).padding(.vertical)
 
             switch kind {
             case .mood:
@@ -518,20 +575,66 @@ private struct ChipPickerSheet: View {
                 ))
             case .tags:
                 VStack(alignment: .leading, spacing: 12) {
-                    FlowTags(tags: tags, onRemove: { tag in
-                        tags.removeAll { $0 == tag }
-                    })
-                    HStack {
-                        TextField("Add a tag…", text: $newTagText)
+                    HStack(spacing: 8) {
+                        Image(systemName: "tag").imageScale(.small)
+                        TextField("Search or add a tag…", text: $newTagText)
                             .textFieldStyle(.roundedBorder)
+                            .submitLabel(.done)
+                            .onSubmit {
+                                let t = newTagText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !t.isEmpty else { return }
+                                let norm = t
+                                if !tags.contains(where: { $0.caseInsensitiveCompare(norm) == .orderedSame }) {
+                                    tags.append(norm)
+                                }
+                                newTagText = ""
+                            }
                         Button("Add") {
                             let t = newTagText.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !t.isEmpty else { return }
-                            if !tags.contains(t) { tags.append(t) }
+                            let norm = t
+                            if !tags.contains(where: { $0.caseInsensitiveCompare(norm) == .orderedSame }) {
+                                tags.append(norm)
+                            }
                             newTagText = ""
                         }
+                        .buttonStyle(.borderedProminent)
                     }
                     .padding(.horizontal)
+
+                    // Suggestions (from knownTags)
+                    if let known = knownTags {
+                        let filtered = known.filter { q in
+                            newTagText.isEmpty || q.localizedCaseInsensitiveContains(newTagText)
+                        }.filter { k in
+                            !tags.contains(where: { $0.caseInsensitiveCompare(k) == .orderedSame })
+                        }
+                        if !filtered.isEmpty {
+                            Text("Suggestions").font(.caption).padding(.horizontal)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
+                                ForEach(filtered, id: \.self) { k in
+                                    Button {
+                                        tags.append(k)
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Text(k).font(.callout.weight(.semibold))
+                                            Image(systemName: "plus.circle.fill").imageScale(.small)
+                                        }
+                                        .padding(.horizontal, 10).padding(.vertical, 6)
+                                        .background(Capsule().fill(Color.accentColor.opacity(0.14)))
+                                        .overlay(Capsule().stroke(Color.accentColor.opacity(0.3), lineWidth: 1))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // Selected tags
+                    FlowTags(tags: tags, onRemove: { tag in
+                        tags.removeAll { $0.caseInsensitiveCompare(tag) == .orderedSame }
+                    })
                 }
             }
 
@@ -603,10 +706,14 @@ private struct EntryEditorPreviewHarness: View {
     }
 }
 
-#Preview("Interactive • Light") { EntryEditorPreviewHarness() }
+#Preview("Interactive • Light") {
+    EntryEditorPreviewHarness()
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+}
 #Preview("Interactive • Dark")  {
     EntryEditorPreviewHarness()
         .preferredColorScheme(.dark)
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
 #Preview("Editor • NavStack") {
     NavigationStack {
