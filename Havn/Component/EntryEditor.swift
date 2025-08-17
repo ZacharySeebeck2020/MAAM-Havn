@@ -354,6 +354,7 @@ struct EntryEditor: View {
         ZStack {
             AnyView(backgroundLayer)
             AnyView(editorLayer(entry: entries.first))
+            
         }
     }
 
