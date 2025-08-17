@@ -1,6 +1,19 @@
 import WidgetKit
 import SwiftUI
 import os.log
+import ImageIO
+import MobileCoreServices // (or CoreServices on older SDKs)
+
+private func loadDownsampledImage(url: URL, maxPixelDimension: Int) -> UIImage? {
+    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+    let options: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceThumbnailMaxPixelSize: maxPixelDimension,
+        kCGImageSourceCreateThumbnailWithTransform: true
+    ]
+    guard let thumb = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else { return nil }
+    return UIImage(cgImage: thumb)
+}
 
 extension WidgetConfiguration
 {
@@ -17,7 +30,18 @@ extension WidgetConfiguration
     }
 }
 
-private let HAVN_WIDGET_MAX_PIXEL_AREA = 1_100_000 // buffer below observed limit (1,144,440)
+extension View {
+    @ViewBuilder
+    func widgetContainerBackground<BG: View>(_ bg: @autoclosure () -> BG) -> some View {
+        if #available(iOSApplicationExtension 17.0, *) {
+            self.containerBackground(for: .widget) { bg() }
+        } else {
+            self.background(bg())
+        }
+    }
+}
+
+private let HAVN_WIDGET_MAX_PIXEL_AREA = 400_000 // buffer below observed limit (1,144,440)
 
 private extension UIImage {
     func resizedToFit(maxArea: Int) -> UIImage {
@@ -63,26 +87,18 @@ struct Provider: TimelineProvider {
     private func load() -> HavnWidgetEntry {
         let fm = FileManager.default
         let container = fm.containerURL(forSecurityApplicationGroupIdentifier: AppGroup.id)
-        wlog.debug("widget container: \(String(describing: container?.path), privacy: .public)")
-
         let stateURL = container!.appendingPathComponent("widget-state.json")
         let thumbURL = container!.appendingPathComponent("today-thumb.jpg")
-
         let data = (try? Data(contentsOf: stateURL)) ?? Data()
-        wlog.debug("state.json bytes: \(data.count, privacy: .public)")
-
         let state = (try? JSONDecoder().decode(WidgetState.self, from: data))
             ?? WidgetState(hasEntryToday: false, streak: 0, bestStreak: 0, locked: false, updatedAt: .distantPast)
-        var img: UIImage? = UIImage(contentsOfFile: thumbURL.path)
+        let maxDim = Int(sqrt(Double(HAVN_WIDGET_MAX_PIXEL_AREA))) // e.g. 632 for 400k area
+        var img: UIImage? = loadDownsampledImage(url: thumbURL, maxPixelDimension: maxDim)
+
+        // (Optional) If the file on disk might already be small, keep your safety resize:
         if let raw = img {
-            let pixelW = raw.size.width * raw.scale
-            let pixelH = raw.size.height * raw.scale
-            wlog.debug("loaded thumb: (\(Int(pixelW)), \(Int(pixelH))) area=\(Int(pixelW * pixelH))")
             img = raw.resizedToFit(maxArea: HAVN_WIDGET_MAX_PIXEL_AREA)
         }
-        let iw = Int((img?.size.width ?? 0) * (img?.scale ?? 1))
-        let ih = Int((img?.size.height ?? 0) * (img?.scale ?? 1))
-        wlog.debug("decoded: hasToday=\(state.hasEntryToday, privacy: .public) streak=\(state.streak, privacy: .public) best=\(state.bestStreak, privacy: .public) img=\((img != nil) as NSNumber, privacy: .public) size=(\(iw), \(ih)) area=\(iw * ih) updatedAt=\(state.updatedAt.timeIntervalSince1970, privacy: .public)")
 
         return HavnWidgetEntry(date: Date(), state: state, image: img)
     }
@@ -148,6 +164,7 @@ struct HavnWidgetView: View {
             .padding(8)
             .foregroundStyle(.white)
         }
+        .widgetContainerBackground(backgroundView)
         .widgetURL(URL(string: "havn://openTodayEditor"))
     }
     
@@ -181,7 +198,9 @@ struct HavnWidgetView: View {
 
                 // Middle: last 7 days mini-history (filled = entry day)
                 HStack(spacing: 6) {
-                    ForEach(last7Booleans(), id: \.self) { filled in
+                    let days = last7Booleans()
+                    ForEach(days.indices, id: \.self) { i in
+                        let filled = days[i]
                         Circle()
                             .strokeBorder(.white.opacity(0.55), lineWidth: 1)
                             .background(Circle().fill(filled ? .white : .clear))
@@ -213,6 +232,7 @@ struct HavnWidgetView: View {
             .padding(.vertical, 10)
             .foregroundStyle(.white)
         }
+        .widgetContainerBackground(backgroundView)
         .widgetURL(URL(string: "havn://openTodayEditor"))
     }
 
