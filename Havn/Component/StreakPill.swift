@@ -9,13 +9,14 @@
 import SwiftUI
 import CoreData
 
+@MainActor
 struct StreakPill: View {
     @Environment(\.managedObjectContext) private var moc
 
     @State private var stats: StreakStats = StreakStats(current: 0, best: 0, lastEntryDay: nil)
 
     var body: some View {
-        pill
+        AnyView(pill)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
@@ -25,8 +26,20 @@ struct StreakPill: View {
             )
             .foregroundStyle(Color("TextMainColor"))
             .onAppear(perform: recalc)
-            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)) { _ in recalc() }
-            .onReceive(NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange)) { _ in recalc() }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .NSManagedObjectContextDidSave, object: moc)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                recalc()
+            }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .NSPersistentStoreRemoteChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                recalc()
+            }
     }
 
     @ViewBuilder
@@ -62,17 +75,14 @@ struct StreakPill: View {
             }
         }
     }
+    @MainActor
     private func recalc() {
-        let ctx = moc
-        ctx.perform {
-            let s = Streaks.compute(in: ctx)
-            Task { @MainActor in
-                if s.current > stats.current {
-                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                }
-                withAnimation(.snappy) { stats = s }
-            }
+        // Compute synchronously on main context; fast and avoids background publishes
+        let s = Streaks.compute(in: moc)
+        if s.current > stats.current {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         }
+        withAnimation(.snappy) { stats = s }
     }
 }
 
