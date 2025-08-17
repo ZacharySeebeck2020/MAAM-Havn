@@ -100,7 +100,7 @@ struct JournalView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color("BackgroundColor").ignoresSafeArea(edges: .bottom))
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showEditor) {
+        .fullScreenCover(isPresented: $showEditor) {
             NavigationStack {
                 EntryEditor(day: editingDay ?? selected)
                     .navigationTitle((editingDay ?? selected)
