@@ -170,7 +170,7 @@ struct SettingsView: View {
                         .font(HavnTheme.Typeface.caption)
                 }
 
-                Link(destination: URL(string: "https://havn.seebeck.tech/havn-privacy")!) {
+                Link(destination: URL(string: "https://havn.seebeck.work/privacy.html")!) {
                     Label("Privacy Policy", systemImage: "lock.shield.fill")
                         .font(HavnTheme.Typeface.caption)
                 }
