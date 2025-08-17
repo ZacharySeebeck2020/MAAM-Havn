@@ -32,13 +32,15 @@ struct EntryEditor: View {
     @MainActor
     private func scheduleSave(debounce: Double = 0.75) {
         saveTask?.cancel()
-        let snapshot = draftText  // capture latest text
-        saveTask = Task { @MainActor in
-            isSaving = true
+        let snapshot = draftText // capture latest
+        saveTask = Task {
+            await MainActor.run { isSaving = true }
             try? await Task.sleep(nanoseconds: UInt64(debounce * 1_000_000_000))
-            if Task.isCancelled { isSaving = false; return }
-            saveNowIfNeeded(text: snapshot)
-            isSaving = false
+            if Task.isCancelled { await MainActor.run { isSaving = false }; return }
+            await MainActor.run {
+                saveNowIfNeeded(text: snapshot)
+                isSaving = false
+            }
         }
     }
     
@@ -88,10 +90,11 @@ struct EntryEditor: View {
         }
     }
     
+    @MainActor
     private func markUpdated(_ e: JournalEntry) {
         e.updatedAt = Date()
     }
-    private func touch(_ e: JournalEntry) { e.updatedAt = Date(); try? moc.save() }
+    @MainActor private func touch(_ e: JournalEntry) { e.updatedAt = Date(); try? moc.save() }
     
     // MARK: - Persistence helpers for optional attributes
     private func supportsAttr(_ key: String) -> Bool {
@@ -104,30 +107,34 @@ struct EntryEditor: View {
         return num.int16Value
     }
 
+    @MainActor
     private func setInt16(_ key: String, _ val: Int16) {
-        guard let e = entries.first else { return }
-        guard supportsAttr(key) else { return }
-        e.setValue(NSNumber(value: val), forKey: key)
-        markUpdated(e)
-        try? moc.save()
+        moc.perform {
+            guard let e = entries.first else { return }
+            guard supportsAttr(key) else { return }
+            e.setValue(NSNumber(value: val), forKey: key)
+            markUpdated(e)
+            try? moc.save()
+        }
     }
 
     // Legacy getTagsArray removed; relationship only.
 
+    @MainActor
     private func setTagsArray(_ arr: [String]) {
-        guard let e = entries.first else { return }
-        let desiredNames = arr.map(normalizeTag).filter { !$0.isEmpty }
-        // Build Tag objects
-        var objects = [NSManagedObject]()
-        for name in desiredNames {
-            if let tag = fetchOrCreateTag(named: name) { objects.append(tag) }
+        moc.perform {
+            guard let e = entries.first else { return }
+            let desiredNames = arr.map(normalizeTag).filter { !$0.isEmpty }
+            var objects = [NSManagedObject]()
+            for name in desiredNames {
+                if let tag = fetchOrCreateTag(named: name) { objects.append(tag) }
+            }
+            let rel = e.mutableSetValue(forKey: "tagsRel")
+            rel.removeAllObjects()
+            rel.addObjects(from: objects)
+            markUpdated(e)
+            try? moc.save()
         }
-        // Replace the relationship via a mutable set to avoid KVC type pitfalls
-        let rel = e.mutableSetValue(forKey: "tagsRel")
-        rel.removeAllObjects()
-        rel.addObjects(from: objects)
-        markUpdated(e)
-        try? moc.save()
     }
 
     // MARK: - Tag helpers (discovery + normalization)
@@ -137,19 +144,23 @@ struct EntryEditor: View {
         return squashed
     }
 
+    @MainActor
     private func refreshKnownTags(limit: Int = 500) {
         knownTags = fetchAllTagNames(limit: limit)
     }
 
     // MARK: - Shared Tag model (optional, runtime-detected)
+    @MainActor
     private func hasTagEntity() -> Bool {
         guard let psc = moc.persistentStoreCoordinator else { return false }
         return psc.managedObjectModel.entitiesByName.keys.contains("Tag")
     }
+    @MainActor
     private func journalSupportsTagRel() -> Bool {
         guard let e = entries.first else { return false }
         return e.entity.relationshipsByName.keys.contains("tagsRel")
     }
+    @MainActor
     private func fetchOrCreateTag(named raw: String) -> NSManagedObject? {
         guard hasTagEntity() else { return nil }
         let name = normalizeTag(raw)
@@ -164,6 +175,7 @@ struct EntryEditor: View {
         tag.setValue(name, forKey: "name")
         return tag
     }
+    @MainActor
     private func fetchAllTagNames(limit: Int = 500) -> [String] {
         guard hasTagEntity() else { return [] }
         let req = NSFetchRequest<NSManagedObject>(entityName: "Tag")
@@ -173,6 +185,7 @@ struct EntryEditor: View {
         return names
     }
 
+    @MainActor
     private func getRelationalTags() -> [String] {
         guard journalSupportsTagRel(), let e = entries.first else { return [] }
         if let set = e.value(forKey: "tagsRel") as? NSSet {
@@ -182,75 +195,170 @@ struct EntryEditor: View {
         return []
     }
 
-    var body: some View {
-        let entry = entries.first  // may be nil on first load
-        
-        return ZStack {
-            // Editor background from today's featured photo (if any)
-            GeometryReader { geo in
-                if let data = entries.first?.photoData, let bg = UIImage(data: data) {
-                    Image(uiImage: bg)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(
-                            width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
-                            height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
+    @ViewBuilder
+    private var backgroundLayer: some View {
+        GeometryReader { geo in
+            if let data = entries.first?.photoData, let bg = UIImage(data: data) {
+                Image(uiImage: bg)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(
+                        width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+                        height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
+                    )
+                    .clipped()
+                    .overlay(
+                        LinearGradient(
+                            colors: [Color.black.opacity(0.35), Color.black.opacity(0.15), Color.clear],
+                            startPoint: .top, endPoint: .bottom
                         )
-                        .clipped()
-                        .overlay(
-                            LinearGradient(
-                                colors: [Color.black.opacity(0.35), Color.black.opacity(0.15), Color.clear],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        )
-                        .ignoresSafeArea()
-                        .allowsHitTesting(false)
-                }
+                    )
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .transaction { $0.animation = nil }
             }
-            VStack(spacing: 12) {
-                // Chips pinned (non-scrolling)
-                MetaChipsRow(photoSelection: $photoItem,
-                             moodScore: $moodScore,
-                             energyScore: $energyScore,
-                             weatherScore: $weatherScore,
-                             tags: $tags,
-                             knownTags: knownTags)
-                    .padding(.top, 8)
-                
-                // Editor content fills remaining height; TextEditor scrolls internally
-                VStack(spacing: 16) {
-                    // Text card
-                    ZStack(alignment: .topLeading) {
-                        if draftText.isEmpty {
-                            Text("Write about today…")
-                                .foregroundStyle(Color("TextMutedColor"))
-                                .padding(.horizontal, 18)
-                                .padding(.top, 16)
-                        }
+        }
+    }
 
-                        TextEditor(text: Binding(
-                            get: { draftText },
-                            set: { new in
-                                draftText = new
-                                scheduleSave(debounce: 0.75)
-                            }
-                        ))
-                        .focused($textFocused)
-                        .scrollContentBackground(.hidden)
-                        .padding(12)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 220)
-                    .frame(maxHeight: .infinity, alignment: .top) // fill to bottom, then shrink with keyboard
-                    .background(.ultraThinMaterial) // match BottomTagsBar material
-                    .clipShape(RoundedRectangle(cornerRadius: HavnTheme.Radius.card, style: .continuous))
-                }
+    @ViewBuilder
+    private func editorLayer(entry: JournalEntry?) -> some View {
+        VStack(spacing: 12) {
+            // Chips pinned (non-scrolling)
+            MetaChipsRow(photoSelection: $photoItem,
+                         moodScore: $moodScore,
+                         energyScore: $energyScore,
+                         weatherScore: $weatherScore,
+                         tags: $tags,
+                         knownTags: knownTags)
                 .padding(.top, 8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            
+            // Editor content fills remaining height; TextEditor scrolls internally
+            VStack(spacing: 16) {
+                // Text card
+                ZStack(alignment: .topLeading) {
+                    if draftText.isEmpty {
+                        Text("Write about today…")
+                            .foregroundStyle(Color("TextMutedColor"))
+                            .padding(.horizontal, 18)
+                            .padding(.top, 16)
+                    }
+
+                    TextEditor(text: Binding(
+                        get: { draftText },
+                        set: { new in
+                            draftText = new
+                            scheduleSave(debounce: 0.75)
+                        }
+                    ))
+                    .focused($textFocused)
+                    .scrollContentBackground(.hidden)
+                    .padding(12)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 220)
+                .frame(maxHeight: .infinity, alignment: .top) // fill to bottom, then shrink with keyboard
+                .background(.ultraThinMaterial) // match BottomTagsBar material
+                .clipShape(RoundedRectangle(cornerRadius: HavnTheme.Radius.card, style: .continuous))
             }
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top) // ensure ZStack fills the screen so the background reaches the bottom
-            .scrollDismissesKeyboard(.interactively)
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top) // ensure ZStack fills the screen so the background reaches the bottom
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    // MARK: - Lightweight Helper Builders
+    @ToolbarContentBuilder
+    private func editorToolbar() -> some ToolbarContent {
+        ToolbarItemGroup(placement: .keyboard) {
+            HStack(spacing: 12) {
+                Text("\(draftText.count) chars")
+                    .font(.caption)
+                    .foregroundStyle(Color("TextMutedColor"))
+                Spacer()
+                Button("Done") { textFocused = false }
+                    .font(.body.weight(.semibold))
+            }
+        }
+        ToolbarItem(placement: .principal) {
+            VStack(spacing: 2) {
+                Text(toolbarTitle)
+                    .font(.headline)
+                if isSaving {
+                    Label("Saving…", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption2)
+                        .labelStyle(.titleAndIcon)
+                        .foregroundStyle(Color("TextMutedColor"))
+                }
+            }
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                let e = entries.first ?? createEntry()
+                e.isStarred.toggle()
+                scheduleSave()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                Image(systemName: (entries.first?.isStarred ?? false) ? "star.fill" : "star")
+                    .symbolRenderingMode(.hierarchical)
+            }
+            .accessibilityLabel((entries.first?.isStarred ?? false) ? "Unstar" : "Star")
+        }
+    }
+
+    private var toolbarTitle: String {
+        day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().year())
+    }
+
+    @MainActor
+    private func handleMoodChange(_ newVal: Double) { setInt16("moodScore", Int16(max(1, min(5, Int(newVal.rounded()))))) }
+    @MainActor
+    private func handleEnergyChange(_ newVal: Double) { setInt16("energyScore", Int16(max(1, min(5, Int(newVal.rounded()))))) }
+    @MainActor
+    private func handleWeatherChange(_ newVal: Double) { setInt16("weatherScore", Int16(max(1, min(5, Int(newVal.rounded()))))) }
+
+    private func handleTagsChange(_ newArr: [String]) {
+        Task { await MainActor.run { setTagsArray(newArr) } }
+    }
+
+    private func seedOnAppear() {
+        if let e = entries.first { draftText = e.text ?? "" }
+        moodScore = Double(getInt16("moodScore"))
+        energyScore = Double(getInt16("energyScore"))
+        weatherScore = Double(getInt16("weatherScore"))
+        tags = getRelationalTags()
+        refreshKnownTags()
+    }
+
+    private func finalizeOnDisappear() {
+        saveTask?.cancel()
+        saveNowIfNeeded(text: draftText)
+    }
+
+    private func handlePhotoChange(_ item: PhotosPickerItem?) async {
+        guard let data = try? await item?.loadTransferable(type: Data.self) else { return }
+        await MainActor.run {
+            let e = entries.first ?? createEntry()
+            if let ui = UIImage(data: data), let jpeg = ui.jpegData(compressionQuality: 0.9) {
+                e.photoData = jpeg
+            } else {
+                e.photoData = data
+            }
+            touch(e)
+        }
+    }
+
+    @ViewBuilder
+    private var rootStack: some View {
+        ZStack {
+            AnyView(backgroundLayer)
+            AnyView(editorLayer(entry: entries.first))
+        }
+    }
+
+    var body: some View {
+        rootStack
             .safeAreaInset(edge: .bottom) {
                 if !tags.isEmpty {
                     BottomTagsBar(tags: $tags)
@@ -258,428 +366,16 @@ struct EntryEditor: View {
                 }
             }
             .onChange(of: photoItem) { _, item in
-                Task {
-                    guard let data = try? await item?.loadTransferable(type: Data.self) else { return }
-                    let e = entries.first ?? createEntry()
-                    if let ui = UIImage(data: data), let jpeg = ui.jpegData(compressionQuality: 0.9) {
-                        e.photoData = jpeg
-                    } else {
-                        e.photoData = data
-                    }
-                    touch(e) // saves and updates updatedAt
-                }
+                Task { await handlePhotoChange(item) }
             }
-            .onChange(of: moodScore) { _, newVal in
-                let v = Int16(max(1, min(5, Int(newVal.rounded()))))
-                setInt16("moodScore", v)
-            }
-            .onChange(of: energyScore) { _, newVal in
-                let v = Int16(max(1, min(5, Int(newVal.rounded()))))
-                setInt16("energyScore", v)
-            }
-            .onChange(of: weatherScore) { _, newVal in
-                let v = Int16(max(1, min(5, Int(newVal.rounded()))))
-                setInt16("weatherScore", v)
-            }
-            .onChange(of: tags) { _, newArr in
-                setTagsArray(newArr)
-            }
-            .onChange(of: tags) { _, _ in
-                refreshKnownTags()
-            }
-            .onAppear {
-                // If CloudKit already brought the entry, seed the editor text
-                if let e = entries.first { draftText = e.text ?? "" }
-                // Seed vitals/tags from existing entry if attributes exist
-                moodScore = Double(getInt16("moodScore"))
-                energyScore = Double(getInt16("energyScore"))
-                weatherScore = Double(getInt16("weatherScore"))
-                tags = getRelationalTags()
-                refreshKnownTags()
-            }
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    HStack(spacing: 12) {
-                        Text("\(draftText.count) chars")
-                            .font(.caption)
-                            .foregroundStyle(Color("TextMutedColor"))
-                        Spacer()
-                        Button("Done") { textFocused = false }
-                            .font(.body.weight(.semibold))
-                    }
-                }
-            }
-            .onDisappear {
-                saveTask?.cancel()
-                saveNowIfNeeded(text: draftText)
-            }
-            .toolbar {
-                // Title: date + tiny saving state
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 2) {
-                        Text(day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().year()))
-                            .font(.headline)
-                        if isSaving {
-                            Label("Saving…", systemImage: "arrow.triangle.2.circlepath")
-                                .font(.caption2)
-                                .labelStyle(.titleAndIcon)
-                                .foregroundStyle(Color("TextMutedColor"))
-                        }
-                    }
-                }
-                
-                // Trailing: Star toggle
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        let e = entry ?? createEntry()
-                        e.isStarred.toggle()
-                        scheduleSave()
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    } label: {
-                        Image(systemName: (entry?.isStarred ?? false) ? "star.fill" : "star")
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                    .accessibilityLabel((entry?.isStarred ?? false) ? "Unstar" : "Star")
-                }
-            }
-        }
-    }
-}
-    
-// Save/load image privately
-enum ImageStore {
-    static func save(_ ui: UIImage) throws -> String {
-        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(UUID().uuidString + ".jpg")
-        guard let data = ui.jpegData(compressionQuality: 0.9) else { throw NSError(domain: "image", code: 0) }
-        try data.write(to: url, options: .atomic)
-        return url.path
-    }
-}
-
-// MARK: - Chips + Pickers (UI only, no persistence yet)
-
-private enum ChipKind: String, Identifiable {
-    case mood, energy, weather, tags
-    var id: String { rawValue }
-}
-
-private struct PillChip: View {
-    let title: String
-    let icon: String?
-    let isActive: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon { Image(systemName: icon).imageScale(.small) }
-                Text(title)
-                    .font(.callout.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .accessibilityLabel(title)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(
-                Capsule().fill(Color.accentColor.opacity(0.7))
-            )
-            .contentShape(Capsule())
-        }
-        .buttonStyle(Pressable())
-    }
-}
-
-private struct MetaChipsRow: View {
-    @Binding var photoSelection: PhotosPickerItem?
-    @Binding var moodScore: Double
-    @Binding var energyScore: Double
-    @Binding var weatherScore: Double
-    @Binding var tags: [String]
-    let knownTags: [String]
-    @State private var showPickerFor: ChipKind? = nil
-    @State private var showPhotoPicker: Bool = false
-
-    var body: some View {
-        VStack() {
-            HStack(spacing: 3) {
-                PillChip(
-                    title: "Mood: " + emoji(for: moodScore, kind: .mood),
-                    icon: nil,
-                    isActive: moodScore != 3
-                ) { showPickerFor = .mood }
-
-                PillChip(
-                    title: "Energy: " + emoji(for: energyScore, kind: .energy),
-                    icon: nil,
-                    isActive: energyScore != 3
-                ) { showPickerFor = .energy }
-                PillChip(
-                    title: "Weather: " + emoji(for: weatherScore, kind: .weather),
-                    icon: nil,
-                    isActive: weatherScore != 3
-                ) { showPickerFor = .weather }
-            }
-            HStack(spacing: 8) {
-                PillChip(
-                    title: "Tags",
-                    icon: "tag.fill",
-                    isActive: !tags.isEmpty
-                ) { showPickerFor = .tags }
-                Button {
-                    showPhotoPicker = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "camera.fill").imageScale(.small)
-                        Text("Set Today’s Image")
-                            .font(.callout.weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.7)))
-                    .foregroundStyle(.primary)        // <- adapts: black in light, white in dark
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(Pressable())             // same press feedback as other chips
-                .simultaneousGesture(TapGesture().onEnded {
-                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                })
-                // Present PhotosPicker from the button
-                .photosPicker(isPresented: $showPhotoPicker,
-                              selection: $photoSelection,
-                              matching: .images)
-            }
-            .padding(.bottom, 6)
-            
-        }
-        .sheet(item: $showPickerFor) { kind in
-            switch kind {
-            case .mood:
-                VitalsSliderSheet(kind: .mood, value: $moodScore)
-                    .presentationDetents([.height(90), .medium])
-                    .presentationDragIndicator(.visible)
-            case .energy:
-                VitalsSliderSheet(kind: .energy, value: $energyScore)
-                    .presentationDetents([.height(90), .medium])
-                    .presentationDragIndicator(.visible)
-            case .weather:
-                VitalsSliderSheet(kind: .weather, value: $weatherScore)
-                    .presentationDetents([.height(90), .medium])
-                    .presentationDragIndicator(.visible)
-            case .tags:
-                ChipPickerSheet(
-                    kind: .tags,
-                    mood: .constant(nil),
-                    energy: .constant(nil),
-                    weather: .constant(nil),
-                    tags: $tags,
-                    knownTags: knownTags
-                )
-                .presentationDetents([.height(360), .medium])
-                .presentationDragIndicator(.visible)
-            }
-        }
-    }
-
-    private func emojis(for kind: ChipKind) -> [String] {
-        switch kind {
-        case .mood:    return ["😞","😌","😐","🙂","😄"]
-        case .energy:  return ["🥱","😴","🙂","⚡️","🚀"]
-        case .weather: return ["🌧️","☁️","🌤️","☀️","🌈"]
-        case .tags:    return []
-        }
-    }
-
-    private func emoji(for value: Double, kind: ChipKind) -> String {
-        let idx = max(1, min(5, Int(value.rounded()))) - 1
-        let arr = emojis(for: kind)
-        guard arr.indices.contains(idx) else { return "" }
-        return arr[idx]
-    }
-}
-
-private struct VitalsSliderSheet: View {
-    let kind: ChipKind // expects .mood/.energy/.weather
-    @Binding var value: Double
-
-    private var title: String {
-        switch kind {
-        case .mood: return "Set Mood"
-        case .energy: return "Set Energy"
-        case .weather: return "Set Weather"
-        case .tags: return "" // not used here
-        }
-    }
-
-    private var emojis: [String] {
-        switch kind {
-        case .mood:    return ["😞","😌","😐","🙂","😄"]
-        case .energy:  return ["🥱","😴","🙂","⚡️","🚀"]
-        case .weather: return ["🌧️","☁️","🌤️","☀️","🌈"]
-        case .tags:    return []
-        }
-    }
-
-    var body: some View {
-        GeometryReader { g in
-            VStack(spacing: 8) {
-                // Emoji scale spans slider width, slightly above it
-                HStack(spacing: 0) {
-                    let count = max(1, emojis.count)
-                    ForEach(Array(emojis.enumerated()), id: \.offset) { idx, e in
-                        let selected = (idx == Int(value.rounded()) - 1)
-                        Text(e)
-                            .font(selected ? .title2 : .title3)
-                            .opacity(selected ? 1.0 : 0.65)
-                            .frame(width: g.size.width / CGFloat(count), alignment: .center)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    value = Double(idx + 1)
-                                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                                }
-                            }
-                            .accessibilityLabel("\(title) level \(idx + 1)")
-                    }
-                }
-                .offset(y: -2)
-
-                Slider(value: $value, in: 1...5, step: 1)
-                    .tint(Color.accentColor)
-                    .padding(.horizontal, 20)
-            }
-            .padding(.top, 20)
-            .frame(maxHeight: .infinity, alignment: .center) // center vertically within sheet height
-        }
-        .frame(minHeight: 90) // supports the small detent height
-    }
-}
-
-private struct ChipPickerSheet: View {
-    let kind: ChipKind
-    @Binding var mood: String?
-    @Binding var energy: String?
-    @Binding var weather: String?
-    @Binding var tags: [String]
-    var knownTags: [String]? = nil
-
-    @State private var newTagText = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title).font(.headline).padding(.horizontal).padding(.vertical)
-
-            switch kind {
-            case .mood:
-                SelectGrid(options: ["Calm","Happy","Focused","Grateful","Anxious","Low"], selection: Binding(
-                    get: { mood ?? "" }, set: { mood = $0.isEmpty ? nil : $0 }
-                ))
-            case .energy:
-                SelectGrid(options: ["Low","Steady","High"], selection: Binding(
-                    get: { energy ?? "" }, set: { energy = $0.isEmpty ? nil : $0 }
-                ))
-            case .weather:
-                SelectGrid(options: ["Clear","Cloudy","Rain","Snow"], selection: Binding(
-                    get: { weather ?? "" }, set: { weather = $0.isEmpty ? nil : $0 }
-                ))
-            case .tags:
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "tag").imageScale(.small)
-                        TextField("Search or add a tag…", text: $newTagText)
-                            .textFieldStyle(.roundedBorder)
-                            .submitLabel(.done)
-                            .onSubmit {
-                                let t = newTagText.trimmingCharacters(in: .whitespacesAndNewlines)
-                                guard !t.isEmpty else { return }
-                                let norm = t
-                                if !tags.contains(where: { $0.caseInsensitiveCompare(norm) == .orderedSame }) {
-                                    tags.append(norm)
-                                }
-                                newTagText = ""
-                            }
-                        Button("Add") {
-                            let t = newTagText.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !t.isEmpty else { return }
-                            let norm = t
-                            if !tags.contains(where: { $0.caseInsensitiveCompare(norm) == .orderedSame }) {
-                                tags.append(norm)
-                            }
-                            newTagText = ""
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .padding(.horizontal)
-
-                    // Suggestions (from knownTags)
-                    if let known = knownTags {
-                        let filtered = known.filter { q in
-                            newTagText.isEmpty || q.localizedCaseInsensitiveContains(newTagText)
-                        }.filter { k in
-                            !tags.contains(where: { $0.caseInsensitiveCompare(k) == .orderedSame })
-                        }
-                        if !filtered.isEmpty {
-                            Text("Suggestions").font(.caption).padding(.horizontal)
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
-                                ForEach(filtered, id: \.self) { k in
-                                    Button {
-                                        tags.append(k)
-                                    } label: {
-                                        HStack(spacing: 6) {
-                                            Text(k).font(.callout.weight(.semibold))
-                                            Image(systemName: "plus.circle.fill").imageScale(.small)
-                                        }
-                                        .padding(.horizontal, 10).padding(.vertical, 6)
-                                        .background(Capsule().fill(Color.accentColor.opacity(0.14)))
-                                        .overlay(Capsule().stroke(Color.accentColor.opacity(0.3), lineWidth: 1))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-
-                    // Selected tags
-                    FlowTags(tags: tags, onRemove: { tag in
-                        tags.removeAll { $0.caseInsensitiveCompare(tag) == .orderedSame }
-                    })
-                }
-            }
-
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var title: String {
-        switch kind {
-        case .mood: "Set Mood"
-        case .energy: "Set Energy"
-        case .weather: "Set Weather"
-        case .tags: "Manage Tags"
-        }
-    }
-}
-
-private struct SelectGrid: View {
-    let options: [String]
-    @Binding var selection: String
-
-    let columns = [GridItem(.adaptive(minimum: 96), spacing: 8, alignment: .leading)]
-
-    var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            ForEach(options, id: \.self) { opt in
-                let active = selection == opt
-                PillChip(title: opt, icon: nil, isActive: active) {
-                    selection = (active ? "" : opt)
-                }
-            }
-        }
-        .padding(.horizontal)
+            .onChange(of: moodScore) { _, v in handleMoodChange(v) }
+            .onChange(of: energyScore) { _, v in handleEnergyChange(v) }
+            .onChange(of: weatherScore) { _, v in handleWeatherChange(v) }
+            .onChange(of: tags) { _, arr in handleTagsChange(arr) }
+            .onChange(of: tags) { _, _ in refreshKnownTags() }
+            .onAppear { seedOnAppear() }
+            .onDisappear { finalizeOnDisappear() }
+            .toolbar { editorToolbar() }
     }
 }
 
@@ -696,65 +392,6 @@ struct Pressable: ButtonStyle {
             }
     }
 }
-
-private struct BottomTagsBar: View {
-    @Binding var tags: [String]
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Divider().opacity(0.15)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(tags, id: \.self) { tag in
-                        HStack(spacing: 6) {
-                            Image(systemName: "tag.fill").imageScale(.small)
-                            Text(tag).font(.callout.weight(.semibold))
-                            Button {
-                                tags.removeAll { $0.caseInsensitiveCompare(tag) == .orderedSame }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill").imageScale(.small)
-                            }
-                            .accessibilityLabel("Remove tag \(tag)")
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.accentColor.opacity(0.14)))
-                        .overlay(Capsule().stroke(Color.accentColor.opacity(0.3), lineWidth: 1))
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-            }
-            .background(.ultraThinMaterial)
-        }
-        .ignoresSafeArea(edges: .bottom)
-    }
-}
-
-private struct FlowTags: View {
-    let tags: [String]
-    let onRemove: (String) -> Void
-
-    var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 8)], alignment: .leading, spacing: 8) {
-            ForEach(tags, id: \.self) { tag in
-                HStack(spacing: 6) {
-                    Text(tag).font(.callout.weight(.semibold))
-                    Button(role: .destructive) {
-                        onRemove(tag)
-                    } label: {
-                        Image(systemName: "xmark.circle.fill").imageScale(.small)
-                    }
-                }
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Capsule().fill(Color.accentColor.opacity(0.14)))
-                .overlay(Capsule().stroke(Color.accentColor.opacity(0.3), lineWidth: 1))
-            }
-        }
-        .padding(.horizontal)
-    }
-}
-
 
 private struct EntryEditorPreviewHarness: View {
     @State var selectedDay = Day.start(Date())
