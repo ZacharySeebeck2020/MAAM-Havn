@@ -242,15 +242,8 @@ struct EntryEditor: View {
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 220)
                     .frame(maxHeight: .infinity, alignment: .top) // fill to bottom, then shrink with keyboard
-                    .background(
-                        RoundedRectangle(cornerRadius: HavnTheme.Radius.card)
-                            .fill(Color("CardSurfaceColor").opacity(0.6))
-                    )
+                    .background(.ultraThinMaterial) // match BottomTagsBar material
                     .clipShape(RoundedRectangle(cornerRadius: HavnTheme.Radius.card, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: HavnTheme.Radius.card, style: .continuous)
-                            .stroke(Color("AccentColor").opacity(0.25), lineWidth: 1)
-                    )
                 }
                 .padding(.top, 8)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -258,6 +251,12 @@ struct EntryEditor: View {
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top) // ensure ZStack fills the screen so the background reaches the bottom
             .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom) {
+                if !tags.isEmpty {
+                    BottomTagsBar(tags: $tags)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
             .onChange(of: photoItem) { _, item in
                 Task {
                     guard let data = try? await item?.loadTransferable(type: Data.self) else { return }
@@ -377,14 +376,18 @@ private struct PillChip: View {
                 if let icon { Image(systemName: icon).imageScale(.small) }
                 Text(title)
                     .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .accessibilityLabel(title)
             }
-            .padding(.horizontal, 12).padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
             .background(
-                Capsule()
-                    .fill(Color.accentColor.opacity(0.7))
+                Capsule().fill(Color.accentColor.opacity(0.7))
             )
+            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(Pressable())
     }
 }
 
@@ -396,6 +399,7 @@ private struct MetaChipsRow: View {
     @Binding var tags: [String]
     let knownTags: [String]
     @State private var showPickerFor: ChipKind? = nil
+    @State private var showPhotoPicker: Bool = false
 
     var body: some View {
         VStack() {
@@ -419,28 +423,36 @@ private struct MetaChipsRow: View {
             }
             HStack(spacing: 8) {
                 PillChip(
-                    title: tags.isEmpty ? "Tags" : "Tags: " + tags.joined(separator: ", "),
+                    title: "Tags",
                     icon: "tag.fill",
                     isActive: !tags.isEmpty
                 ) { showPickerFor = .tags }
-                PhotosPicker(selection: $photoSelection, matching: .images) {
+                Button {
+                    showPhotoPicker = true
+                } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "camera.fill")
-                            .imageScale(.small)
-                            .foregroundColor(.black)
+                        Image(systemName: "camera.fill").imageScale(.small)
                         Text("Set Today’s Image")
                             .font(.callout.weight(.semibold))
-                            .foregroundColor(.black)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(
-                        Capsule()
-                            .fill(Color.accentColor.opacity(0.7))
-                    )
+                    .background(Capsule().fill(Color.accentColor.opacity(0.7)))
+                    .foregroundStyle(.primary)        // <- adapts: black in light, white in dark
                     .contentShape(Capsule())
                 }
+                .buttonStyle(Pressable())             // same press feedback as other chips
+                .simultaneousGesture(TapGesture().onEnded {
+                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                })
+                // Present PhotosPicker from the button
+                .photosPicker(isPresented: $showPhotoPicker,
+                              selection: $photoSelection,
+                              matching: .images)
             }
+            .padding(.bottom, 6)
             
         }
         .sheet(item: $showPickerFor) { kind in
@@ -668,6 +680,54 @@ private struct SelectGrid: View {
             }
         }
         .padding(.horizontal)
+    }
+}
+
+struct Pressable: ButtonStyle {
+    var scale: CGFloat = 0.96
+    var hapticStyle: UIImpactFeedbackGenerator.FeedbackStyle = .soft
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed { UIImpactFeedbackGenerator(style: hapticStyle).impactOccurred() }
+            }
+    }
+}
+
+private struct BottomTagsBar: View {
+    @Binding var tags: [String]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider().opacity(0.15)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(tags, id: \.self) { tag in
+                        HStack(spacing: 6) {
+                            Image(systemName: "tag.fill").imageScale(.small)
+                            Text(tag).font(.callout.weight(.semibold))
+                            Button {
+                                tags.removeAll { $0.caseInsensitiveCompare(tag) == .orderedSame }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill").imageScale(.small)
+                            }
+                            .accessibilityLabel("Remove tag \(tag)")
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color.accentColor.opacity(0.14)))
+                        .overlay(Capsule().stroke(Color.accentColor.opacity(0.3), lineWidth: 1))
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+            }
+            .background(.ultraThinMaterial)
+        }
+        .ignoresSafeArea(edges: .bottom)
     }
 }
 
