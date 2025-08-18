@@ -13,6 +13,7 @@ struct JournalView: View {
     @State private var selected = Calendar.current.startOfDay(for: Date())
     @State private var expanded = false
     @Environment(\.managedObjectContext) private var moc
+    @Environment(\.scenePhase) private var scenePhase
 
     // swipe state
     @State private var dragX: CGFloat = 0
@@ -24,6 +25,9 @@ struct JournalView: View {
     @State private var showEditor = false
     @State private var editingDay: Date? = nil
     
+    // Forces DayPhotoCard to rebuild after editor saves
+    @State private var cardRefreshNonce = UUID()
+    
     private func hasEntry(on day: Date) -> Bool {
         let cal = Calendar.current
         let start = cal.startOfDay(for: day)
@@ -34,11 +38,16 @@ struct JournalView: View {
         return (try? moc.count(for: req)) ?? 0 > 0
     }
 
+    private func refreshWidgetAsync() {
+        let ctx = moc
+        ctx.perform {
+            WidgetBridge.refresh(from: ctx)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // FIX: pass the binding
             WeekMonthExpandable(selectedDay: $selected, isExpanded: expanded)
-
             GeometryReader { proxy in
                 let width = proxy.size.width
 
@@ -51,6 +60,7 @@ struct JournalView: View {
                         })
                         .offset(x: isLeftSwipe ? (width + gap + dragX) : (-width - gap + dragX))
                         .transition(.identity)
+                        .id("incoming-\(incoming.timeIntervalSinceReferenceDate)-\(cardRefreshNonce.uuidString)")
                         .zIndex(1)
                     }
 
@@ -63,53 +73,34 @@ struct JournalView: View {
                     .accessibilityLabel("Entry for \(selected.formatted(.dateTime.month().day().year()))")
                     .accessibilityHint("Double-tap to edit")
                     .accessibilityAddTraits(.isButton)
+                    .id("current-\(selected.timeIntervalSinceReferenceDate)-\(cardRefreshNonce.uuidString)")
                     .offset(x: dragX)
                     .zIndex(0)
                     
-                    if !hasEntry(on: selected) {
-                        VStack {
-                            Spacer()
-                            Button {
-                                // open your editor (reuse the sheet you already wired)
-                                 editingDay = selected; showEditor = true
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "plus.circle.fill")
-                                    Text("Add today’s entry")
-                                        .font(HavnTheme.Typeface.callout)
-                                        .fontWeight(.semibold)
-                                }
-                                .padding(.horizontal, 14).padding(.vertical, 12)
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(.ultraThinMaterial)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 20)
+                    DayEntryOverlay(
+                        day: selected,
+                        onAdd: {
+                            editingDay = selected; showEditor = true
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                         }
-                        .transition(.opacity)
-                    }
+                    )
+                    .transition(.opacity)
+                    .id(selected)
                 }
                 .frame(width: width, height: proxy.size.height)
                 .contentShape(Rectangle())
                 .gesture(expanded ? nil : swipeGesture(width: width))
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            .padding(.top, 32)
+            .padding(.bottom,6)
+            .padding(.top, 16)
+            StreakPill()
+                .padding(.horizontal, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color("BackgroundColor").ignoresSafeArea(edges: .bottom))
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showEditor) {
+        .fullScreenCover(isPresented: $showEditor) {
             NavigationStack {
                 EntryEditor(day: editingDay ?? selected)
                     .navigationTitle((editingDay ?? selected)
@@ -122,6 +113,24 @@ struct JournalView: View {
                     }
             }
             .tint(Color("AccentColor"))
+        }
+        .onChange(of: showEditor) { oldValue, newValue in
+            if newValue == false { // editor just closed
+                // force DayPhotoCard to rebuild using a fresh ID
+                cardRefreshNonce = UUID()
+                refreshWidgetAsync()
+            }
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active {
+                refreshWidgetAsync()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange).receive(on: RunLoop.main)) { _ in
+            refreshWidgetAsync()
+        }
+        .onAppear() {
+            refreshWidgetAsync()
         }
     }
 
@@ -180,6 +189,54 @@ struct JournalView: View {
     }
 }
 private enum SwipeDir { case left, right, none }
+
+private struct DayEntryOverlay: View {
+    let day: Date
+    let onAdd: () -> Void
+
+    @FetchRequest private var entries: FetchedResults<JournalEntry>
+
+    init(day: Date, onAdd: @escaping () -> Void) {
+        self.day = day
+        self.onAdd = onAdd
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: day)
+        let end = cal.date(byAdding: .day, value: 1, to: start)!
+        let predicate = NSPredicate(format: "day >= %@ AND day < %@", start as NSDate, end as NSDate)
+        _entries = FetchRequest(sortDescriptors: [], predicate: predicate)
+    }
+
+    var body: some View {
+        Group {
+            if entries.isEmpty {
+                VStack {
+                    Spacer()
+                    Button(action: onAdd) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Add today’s entry")
+                                .font(HavnTheme.Typeface.callout)
+                                .fontWeight(.semibold)
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
+            }
+        }
+    }
+}
 
 #Preview("Interactive • Light") {
     JournalView()
