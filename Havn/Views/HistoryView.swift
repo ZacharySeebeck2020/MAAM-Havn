@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import CoreData
 
 struct HistoryView: View {
     @Environment(\.managedObjectContext) private var moc
@@ -37,7 +36,7 @@ struct HistoryView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
-            
+
             // Results list
             List {
                 if filteredEntries.isEmpty {
