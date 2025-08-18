@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import CoreData
 
 struct HistoryView: View {
     @Environment(\.managedObjectContext) private var moc
@@ -26,23 +25,6 @@ struct HistoryView: View {
     }
     @State private var filter: Filter = .all
     @State private var searchText: String = ""
-    @State private var moodFilter: Double = 0
-    @State private var energyFilter: Double = 0
-    @State private var weatherFilter: Double = 0
-    @State private var tagsFilter: [String] = []
-    @State private var knownTags: [String] = []
-    
-    @MainActor
-    private func fetchAllTagNames(limit: Int = 500) -> Void {
-        let req = NSFetchRequest<NSManagedObject>(entityName: "Tag")
-        req.fetchLimit = limit
-        req.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.localizedCaseInsensitiveCompare(_:)))]
-        knownTags = (try? moc.fetch(req))?.compactMap { $0.value(forKey: "name") as? String } ?? []
-    }
-    
-    private func seedOnAppear() {
-        fetchAllTagNames()
-    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -54,9 +36,7 @@ struct HistoryView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
-            
-            MetaChipsRowFilterable(moodScore: $moodFilter, energyScore: $energyFilter, weatherScore: $weatherFilter, tags: $tagsFilter, knownTags: knownTags)
-            
+
             // Results list
             List {
                 if filteredEntries.isEmpty {
@@ -97,7 +77,6 @@ struct HistoryView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Color("BackgroundColor"))
-            .onAppear{seedOnAppear()}
         }
         // Native search bar (searches note contents)
         .searchable(text: $searchText, placement: .navigationBarDrawer, prompt: "Search entries")
