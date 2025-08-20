@@ -5,7 +5,77 @@
 //  Created by Zac Seebeck on 8/9/25.
 //
 
+
 import SwiftUI
+
+// Encapsulates all filtering logic for HistoryView
+struct HistoryFilterState {
+    enum Segment {
+        case all, starred, photos
+    }
+    var segment: Segment = .all
+    var searchText: String = ""
+    /// Picker indices where 0 = Any, N = raw value (N-1)
+    var moodIndex: Int = 0
+    var energyIndex: Int = 0
+    var weatherIndex: Int = 0
+
+    @inline(__always)
+    private func mappedValue(from index: Int) -> Int? {
+        // 0 = Any -> nil (no filter); otherwise shift down by one.
+        index == 0 ? nil : (index )
+    }
+
+    func matches(_ e: JournalEntry) -> Bool {
+        // Segment
+        let passSegment: Bool = {
+            switch segment {
+            case .all:
+                return true
+            case .starred:
+                return e.isStarred
+            case .photos:
+                return (e.photoData?.isEmpty == false)
+            }
+        }()
+
+        // Search in text, optional title, and tag names
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let passSearch: Bool = {
+            guard !q.isEmpty else { return true }
+            let inText  = e.textValue.localizedCaseInsensitiveContains(q)
+            let inTags: Bool = {
+                if let set = e.tagsRel as? Set<Tag> {
+                    return set.contains { ($0.name ?? "").localizedCaseInsensitiveContains(q) }
+                }
+                return false
+            }()
+            return inText || inTags
+        }()
+
+        // Vitals (off-by-one fixed via mappedValue)
+        let moodSelected    = mappedValue(from: moodIndex)
+        let energySelected  = mappedValue(from: energyIndex)
+        let weatherSelected = mappedValue(from: weatherIndex)
+
+        // These properties are provided by JournalEntry+Safe
+        // (Int-backed, defaulting to nil when unset)
+        let passMood: Bool = {
+            if let sel = moodSelected { return e.moodScore == sel }
+            return true
+        }()
+        let passEnergy: Bool = {
+            if let sel = energySelected { return e.energyScore == sel }
+            return true
+        }()
+        let passWeather: Bool = {
+            if let sel = weatherSelected { return e.weatherScore == sel }
+            return true
+        }()
+
+        return passSegment && passSearch && passMood && passEnergy && passWeather
+    }
+}
 
 struct HistoryView: View {
     @Environment(\.managedObjectContext) private var moc
@@ -25,17 +95,39 @@ struct HistoryView: View {
     }
     @State private var filter: Filter = .all
     @State private var searchText: String = ""
+    
+    @State var moodFilter: Int = 0
+    @State var energyFilter: Int = 0
+    @State var weatherFilter: Int = 0
+
+    // Derived/composed filter state used for matching
+    private var composedFilter: HistoryFilterState {
+        var s = HistoryFilterState()
+        s.segment = {
+            switch filter {
+            case .all: return .all
+            case .starred: return .starred
+            case .photos: return .photos
+            }
+        }()
+        s.searchText = searchText
+        s.moodIndex = moodFilter
+        s.energyIndex = energyFilter
+        s.weatherIndex = weatherFilter
+        return s
+    }
 
     var body: some View {
         VStack(spacing: 8) {
+            FiltersBar(moodFilter: $moodFilter, energyFilter: $energyFilter, weatherFilter: $weatherFilter, searchFilter: $searchText)
             // Segmented filter
-            Picker("Filter", selection: $filter) {
-                ForEach(Filter.allCases) { f in
-                    Text(f.rawValue).tag(f)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
+//            Picker("Filter", selection: $filter) {
+//                ForEach(Filter.allCases) { f in
+//                    Text(f.rawValue).tag(f)
+//                }
+//            }
+//            .pickerStyle(.segmented)
+//            .padding(.horizontal)
 
             // Results list
             List {
@@ -78,27 +170,12 @@ struct HistoryView: View {
             .scrollContentBackground(.hidden)
             .background(Color("BackgroundColor"))
         }
-        // Native search bar (searches note contents)
-        .searchable(text: $searchText, placement: .navigationBarDrawer, prompt: "Search entries")
     }
 
     // MARK: - Filtering
 
     private var filteredEntries: [JournalEntry] {
-        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return entries.filter { e in
-            // Filter
-            let passFilter: Bool = {
-                switch filter {
-                case .all:     return true
-                case .starred: return e.isStarred
-                case .photos:  return (e.photoData?.isEmpty == false)
-                }
-            }()
-            // Search (contents only)
-            let passSearch = q.isEmpty || e.textValue.localizedCaseInsensitiveContains(q)
-            return passFilter && passSearch
-        }
+        entries.filter { composedFilter.matches($0) }
     }
 
     private var emptyHint: String {
