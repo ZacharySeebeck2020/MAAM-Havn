@@ -82,6 +82,13 @@ struct SettingsView: View {
                     .foregroundStyle(Color("TextMutedColor"))
             }
             
+            Section("Tags") {
+                NavigationLink("Manage Tags") {
+                    TagManagementView()
+                }
+                .font(HavnTheme.Typeface.caption)
+            }
+            
             Section {
                 Toggle("Enable Daily Notification", isOn: Binding (
                     get: {
