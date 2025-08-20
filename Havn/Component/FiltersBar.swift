@@ -37,7 +37,7 @@ struct FiltersBar: View {
                     Spacer()
                     Button {
                         Haptics.soft()
-                        isExpanded = true
+                        withAnimation(.snappy) { isExpanded = true }
                     } label: {
                         ZStack {
                             Circle()
@@ -69,6 +69,7 @@ struct FiltersBar: View {
             }
         }
         .zIndex(20)
+        .animation(.snappy, value: isExpanded)
     }
 }
 

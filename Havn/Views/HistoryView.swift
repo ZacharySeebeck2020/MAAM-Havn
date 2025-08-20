@@ -39,9 +39,19 @@ struct HistoryFilterState {
             }
         }()
 
-        // Search (in text and tags if available)
+        // Search in text, optional title, and tag names
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let passSearch = q.isEmpty || e.textValue.localizedCaseInsensitiveContains(q)
+        let passSearch: Bool = {
+            guard !q.isEmpty else { return true }
+            let inText  = e.textValue.localizedCaseInsensitiveContains(q)
+            let inTags: Bool = {
+                if let set = e.tagsRel as? Set<Tag> {
+                    return set.contains { ($0.name ?? "").localizedCaseInsensitiveContains(q) }
+                }
+                return false
+            }()
+            return inText || inTags
+        }()
 
         // Vitals (off-by-one fixed via mappedValue)
         let moodSelected    = mappedValue(from: moodIndex)
